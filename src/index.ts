@@ -249,25 +249,16 @@ JSON format:
             }
         });
 
-        // return webhookCallback(bot, "cloudflare-mod", {
-        //     timeoutMilliseconds: 60000,
-        // })(request);
         if (request.method === "POST") {
             try {
-                // 1. Parse the incoming Telegram update
                 const update = await request.json();
 
-                // 2. Tell Cloudflare to process the bot update in the background
-                //    WITHOUT waiting for it to finish before moving to the next line.
                 ctx.waitUntil(bot.handleUpdate(update as Update));
             } catch (err) {
                 console.error("Error parsing update:", err);
             }
         }
 
-        // 3. Immediately return a 200 OK to Telegram.
-        //    Telegram instantly registers the message as processed and will
-        //    immediately fire webhooks for new commands like /version.
         return new Response("OK", { status: 200 });
     },
 };
