@@ -15,5 +15,8 @@
 		"typescript": "^5.5.2",
 		"vitest": "~4.1.0",
 		"wrangler": "^4.130.0"
+	},
+	"dependencies": {
+		"grammy": "^1.46.0"
 	}
 }

@@ -8,9 +8,20 @@
 	"main": "src/index.ts",
 	"compatibility_date": "2026-09-07",
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"head_sampling_rate": 1,
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"ai": {
+		"binding": "AI"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "CHATS",
+			"id": "5897018705054f61b5703cbf8486f66f",
+			"remote": true
+		}
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
