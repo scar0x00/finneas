@@ -87,6 +87,6 @@ export class Agent {
     }
 
     async clearChat() {
-        let chatJson = await this.env.CHATS.delete(this.chatId);
+        await this.env.CHATS.delete(this.chatId);
     }
 }

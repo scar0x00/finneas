@@ -1,8 +1,9 @@
 import { Bot, Context, webhookCallback } from "grammy";
-import { arrayBufferToBase64 } from "./arrayBufferToBase64";
+import { arrayBufferToBase64 } from "./lib/arrayBufferToBase64";
+import { parseJsonFromAnswer } from "./lib/parseJsonFromAnswer";
 import { SYSTEM } from "./SYSTEM_PROMPT";
-// import type { ChatHistory } from "./types/Chat";
 import { Agent } from "./lib/Agent";
+import { Update } from "grammy/types";
 
 export interface Env {
     // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
@@ -26,7 +27,7 @@ export default {
         });
 
         bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.12");
+            await ctx.reply("v0.2.17");
         });
 
         bot.command("new", async (ctx: Context) => {
@@ -64,6 +65,89 @@ export default {
             await ctx.reply(
                 `Received your image!\nDimensions: ${highestResPhoto.width}x${highestResPhoto.height}\nSize: ${imageBuffer.byteLength} bytes.`,
             );
+
+            await ctx.replyWithChatAction("typing");
+
+            try {
+                // 1. Convert downloaded buffer into a base64 Data URI
+                const base64Data = arrayBufferToBase64(imageBuffer);
+                const dataUri = `data:image/jpeg;base64,${base64Data}`;
+
+                // 2. Define schema & prompt for extraction
+                const question =
+                    `You are a financial receipt parser. Extract key bank transaction information from this image.
+Return ONLY a valid JSON object without any additional explanation, markdown backticks, or text. 
+Bear in mind that most of the transactions you'll be processing are from Venezuelan banks.
+JSON format:
+{
+  "bank_name": "string or null",
+  "amount": "number or null",
+  "currency": "string or null (e.g. USD, EUR, etc.)",
+  "transaction_id": "string or null",
+  "reference_number": "string or null",
+  "date": "string (YYYY-MM-DD) or null",
+  "time": "string or null",
+  "sender_name": "string or null",
+  "recipient_name": "string or null",
+  "status": "success | pending | failed | null"
+}`;
+
+                // 3. Call Moondream 3.1 on Cloudflare Workers AI
+                const aiResponse: any = await env.AI.run(
+                    "@cf/moondream/moondream3.1-9B-A2B",
+                    {
+                        task: "query",
+                        image: dataUri,
+                        question: question,
+                        stream: false, // Must be false to receive a direct JSON answer
+                        reasoning: false, // Set to false for concise, direct extraction
+                    },
+                );
+
+                console.log(aiResponse);
+                const rawAnswer = aiResponse?.result?.answer ?? "";
+                const extractedData = parseJsonFromAnswer(rawAnswer);
+
+                if (!extractedData) {
+                    // Fallback in case JSON parsing failed
+                    await ctx.reply(
+                        `⚠️ Could not parse structured JSON. Raw model output:\n\n${rawAnswer}`,
+                    );
+                    return;
+                }
+
+                // 4. Format a clean message for the user
+                const formattedReply =
+                    `🧾 *Transaction Details Extracted:*\n\n` +
+                    `• *Bank:* ${extractedData.bank_name ?? "N/A"}\n` +
+                    `• *Amount:* ${extractedData.amount ?? "N/A"} ${
+                        extractedData.currency ?? ""
+                    }\n` +
+                    `• *Recipient:* ${
+                        extractedData.recipient_name ?? "N/A"
+                    }\n` +
+                    `• *Sender:* ${extractedData.sender_name ?? "N/A"}\n` +
+                    `• *Date & Time:* ${extractedData.date ?? "N/A"} ${
+                        extractedData.time ?? ""
+                    }\n` +
+                    `• *Ref / ID:* \`${
+                        extractedData.reference_number ||
+                        extractedData.transaction_id || "N/A"
+                    }\`\n` +
+                    `• *Status:* ${extractedData.status ?? "N/A"}\n\n` +
+                    `\`\`\`json\n${
+                        JSON.stringify(extractedData, null, 2)
+                    }\n\`\`\``;
+
+                await ctx.reply(formattedReply, { parse_mode: "Markdown" });
+            } catch (err: any) {
+                console.error("Workers AI error:", err);
+                await ctx.reply(
+                    `❌ Failed to process transaction: ${
+                        err.message || "Unknown error"
+                    }`,
+                );
+            }
         });
 
         bot.on("message:voice", async (ctx) => {
@@ -112,7 +196,7 @@ export default {
                 await ctx.reply("Something went wrong with the transcription.");
                 return;
             }
-            
+
             const chatId = ctx.chatId;
             if (!chatId) {
                 await ctx.reply("No chatId on ctx");
@@ -125,7 +209,7 @@ export default {
             });
             const answer = await agent.run(transcription);
             if (!answer) {
-                await ctx.reply("It looks the answer from the model is empty!");
+                await ctx.reply("It looks the answer from the model is empty");
                 return;
             }
 
@@ -135,7 +219,7 @@ export default {
         bot.on("message", async (ctx: Context) => {
             const message = ctx.message;
             if (message === undefined || message.text === undefined) {
-                await ctx.reply("It looks your message is empty!");
+                await ctx.reply("It looks your message is empty");
                 return;
             }
             console.log(message);
@@ -154,15 +238,36 @@ export default {
             const answer = await agent.run(message.text);
 
             if (!answer) {
-                await ctx.reply("It looks the answer from the model is empty!");
+                await ctx.reply("It looks the answer from the model is empty");
                 return;
             }
 
-            await ctx.reply(answer);
+            try {
+                await ctx.reply(answer);
+            } catch {
+                await ctx.reply("Something went wrong when responding");
+            }
         });
 
-        return webhookCallback(bot, "cloudflare-mod", {
-            timeoutMilliseconds: 40000,
-        })(request);
+        // return webhookCallback(bot, "cloudflare-mod", {
+        //     timeoutMilliseconds: 60000,
+        // })(request);
+        if (request.method === "POST") {
+            try {
+                // 1. Parse the incoming Telegram update
+                const update = await request.json();
+
+                // 2. Tell Cloudflare to process the bot update in the background
+                //    WITHOUT waiting for it to finish before moving to the next line.
+                ctx.waitUntil(bot.handleUpdate(update as Update));
+            } catch (err) {
+                console.error("Error parsing update:", err);
+            }
+        }
+
+        // 3. Immediately return a 200 OK to Telegram.
+        //    Telegram instantly registers the message as processed and will
+        //    immediately fire webhooks for new commands like /version.
+        return new Response("OK", { status: 200 });
     },
 };
