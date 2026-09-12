@@ -4,12 +4,9 @@ import { parseJsonFromAnswer } from "./lib/parseJsonFromAnswer";
 import { SYSTEM } from "./SYSTEM_PROMPT";
 import { Agent } from "./lib/Agent";
 import { Update } from "grammy/types";
+import { extractTransactionInfo } from "./lib/extractTransactionInfo";
 
 export interface Env {
-    // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-    // MY_DURABLE_OBJECT: DurableObjectNamespace;
-    // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-    // MY_BUCKET: R2Bucket;
     FINNEAS_BOT_INFO: string;
     FINNEAS_BOT_TOKEN: string;
     AI: Ai;
@@ -27,7 +24,7 @@ export default {
         });
 
         bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.17");
+            await ctx.reply("v0.2.18");
         });
 
         bot.command("new", async (ctx: Context) => {
@@ -69,49 +66,19 @@ export default {
             await ctx.replyWithChatAction("typing");
 
             try {
-                // 1. Convert downloaded buffer into a base64 Data URI
                 const base64Data = arrayBufferToBase64(imageBuffer);
                 const dataUri = `data:image/jpeg;base64,${base64Data}`;
 
                 // 2. Define schema & prompt for extraction
-                const question =
-                    `You are a financial receipt parser. Extract key bank transaction information from this image.
-Return ONLY a valid JSON object without any additional explanation, markdown backticks, or text. 
-Bear in mind that most of the transactions you'll be processing are from Venezuelan banks.
-JSON format:
-{
-  "bank_name": "string or null",
-  "amount": "number or null",
-  "currency": "string or null (e.g. USD, EUR, etc.)",
-  "transaction_id": "string or null",
-  "reference_number": "string or null",
-  "date": "string (YYYY-MM-DD) or null",
-  "time": "string or null",
-  "sender_name": "string or null",
-  "recipient_name": "string or null",
-  "status": "success | pending | failed | null"
-}`;
-
-                // 3. Call Moondream 3.1 on Cloudflare Workers AI
-                const aiResponse: any = await env.AI.run(
-                    "@cf/moondream/moondream3.1-9B-A2B",
-                    {
-                        task: "query",
-                        image: dataUri,
-                        question: question,
-                        stream: false, // Must be false to receive a direct JSON answer
-                        reasoning: false, // Set to false for concise, direct extraction
-                    },
-                );
-
-                console.log(aiResponse);
-                const rawAnswer = aiResponse?.result?.answer ?? "";
-                const extractedData = parseJsonFromAnswer(rawAnswer);
+                const extractedData = await extractTransactionInfo({
+                    image: dataUri,
+                    env
+                });
 
                 if (!extractedData) {
                     // Fallback in case JSON parsing failed
                     await ctx.reply(
-                        `⚠️ Could not parse structured JSON. Raw model output:\n\n${rawAnswer}`,
+                        `⚠️ Could not parse structured JSON. Raw model output:\n\n${extractedData}`,
                     );
                     return;
                 }
