@@ -31,12 +31,11 @@ export async function extractTransactionInfo({
 
     if (typeof image === "string") {
         // If it's already a Data URL, use it. Otherwise, assume it's a raw base64 string.
-        dataUrl = image.startsWith("data:image") 
+        dataUrl = image.startsWith("data:image")
             ? image 
             : `data:image/jpeg;base64,${image}`;
     } else {
         // It's an ArrayBuffer. Convert to Base64 safely.
-        // We use chunking to prevent "Maximum call stack size exceeded" on larger receipt images.
         const uint8Array = new Uint8Array(image);
         let binaryString = "";
         const chunkSize = 8192;
@@ -48,6 +47,7 @@ export async function extractTransactionInfo({
         dataUrl = `data:image/jpeg;base64,${btoa(binaryString)}`;
     }
 
+    // 1. Invoke the DeepSeek V4 Flash model via standard @cf namespace
     const result = await env.AI.run("@cf/zai-org/glm-5.3-flash", {
         messages: [
             {
@@ -57,25 +57,47 @@ export async function extractTransactionInfo({
                     { type: "image_url", image_url: { url: dataUrl } }
                 ]
             }
-        ]
+        ],
+        // Setting temperature to 0 increases JSON strictness determinism
+        temperature: 0 
     });
-    console.log(result.choices[0].message);
 
-    // 3. Extract and parse the response
-    // Cloudflare text generation bindings return `{ response: "..." }`
-    const aiText = (result as any).choices[0].message || "";
+    // 2. Extract the response safely
+    // Standard @cf models natively return `{ response: string }`, 
+    // but we fall back to the OpenAI compatible `choices` array just in case.
+    const aiText = 
+        (result as any).response ||
+        (result as any).choices?.[0]?.message?.content ||
+        "";
+
+    if (!aiText) {
+        console.error("Empty AI Response:", JSON.stringify(result, null, 2));
+        throw new Error("The AI returned an empty response.");
+    }
 
     try {
-        // Even with strict prompting, models sometimes output markdown code blocks.
-        // We strip out standard markdown JSON formatting before parsing.
-        const cleanedText = aiText
-            .replace(/^```json\s*/i, "")
-            .replace(/\s*```$/i, "")
-            .trim();
+        let cleanedText = aiText;
+
+        // 3. Strip DeepSeek reasoning blocks 
+        // (DeepSeek often generates <think>...</think> chain-of-thought blocks before the answer)
+        cleanedText = cleanedText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+        // 4. Safely extract JSON. Even with temperature 0, conversational models
+        // sometimes include conversational preambles.
+        const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/i);
+        if (jsonMatch) {
+            cleanedText = jsonMatch[1];
+        } else {
+            // If there's no code block wrapper, aggressively trim any standard markdown bounds
+            cleanedText = cleanedText
+                .replace(/^```json\s*/i, "")
+                .replace(/\s*```$/i, "")
+                .trim();
+        }
         
         return JSON.parse(cleanedText);
     } catch (error) {
-        console.error("Failed to parse GLM-5.3-Flash response:", aiText);
+        console.error("Failed to parse DeepSeek response:", aiText);
         throw new Error("The AI did not return a valid JSON object.");
     }
 }

@@ -24,7 +24,7 @@ export default {
         });
 
         bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.18");
+            await ctx.reply("v0.2.22");
         });
 
         bot.command("new", async (ctx: Context) => {
