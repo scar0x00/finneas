@@ -21,7 +21,34 @@
 			"id": "5897018705054f61b5703cbf8486f66f",
 			"remote": true
 		}
-	]
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "TG_UPDATES",
+				"queue": "finneas-tg-updates",
+			}
+		],
+		"consumers": [
+			{
+				"queue": "finneas-tg-updates"
+			}
+		]
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UPDATE_PROCESSOR",
+				"class_name": "UpdateProcessor"
+			}
+		]
+	},
+	"exports": {
+		"UpdateProcessor": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		}
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
