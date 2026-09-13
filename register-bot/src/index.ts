@@ -29,8 +29,9 @@ export default {
                     console.error("No chat ID on update");
                     return new Response("REQUEST INVALID", { status: 400 });
                 }
+                console.log(new Date(), "Sending", update);
                 await env.TG_UPDATES.send(update);
-                console.log("Sent", update);
+                console.log(new Date(), "Sent", update);
                 await bot.api.sendChatAction(
                     update?.message?.chat?.id.toString(),
                     "typing",
@@ -48,7 +49,7 @@ export default {
         env: Env,
         ctx: ExecutionContext,
     ): Promise<void> {
-        console.log("Processing messages", JSON.stringify(batch.messages));
+        console.log(new Date(), "Processing messages", JSON.stringify(batch.messages));
         for (const message of batch.messages) {
             if (!message.body?.message?.chat?.id) {
                 console.error("No chat ID on message");

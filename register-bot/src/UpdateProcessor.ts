@@ -21,7 +21,7 @@ export class UpdateProcessor extends DurableObject<Env> {
         });
 
         this.bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.27");
+            await ctx.reply("v0.2.28");
         });
 
         this.bot.command("login", async (ctx: Context) => {
@@ -226,6 +226,8 @@ export class UpdateProcessor extends DurableObject<Env> {
     }
 
     async processUpdate(update: Update) {
-        this.bot.handleUpdate(update as Update)
+        console.log(new Date(), "Processing starts");
+        await this.bot.handleUpdate(update as Update);
+        console.log(new Date(), "Processing ends");
     }
 }
