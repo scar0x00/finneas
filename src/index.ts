@@ -7,6 +7,7 @@ import { Update } from "grammy/types";
 import { extractTransactionInfo } from "./lib/extractTransactionInfo";
 
 export interface Env {
+    XAI_API_KEY: string;
     FINNEAS_BOT_INFO: string;
     FINNEAS_BOT_TOKEN: string;
     AI: Ai;
@@ -24,7 +25,7 @@ export default {
         });
 
         bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.22");
+            await ctx.reply("v0.2.23");
         });
 
         bot.command("new", async (ctx: Context) => {

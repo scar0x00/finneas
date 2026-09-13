@@ -27,11 +27,15 @@ export async function extractTransactionInfo({
     image,
     env,
 }: extractTransactionInfoParams) {
+    if (!env.XAI_API_KEY) {
+        throw new Error("Missing XAI_API_KEY in environment variables.");
+    }
+
     let dataUrl = "";
 
     if (typeof image === "string") {
         // If it's already a Data URL, use it. Otherwise, assume it's a raw base64 string.
-        dataUrl = image.startsWith("data:image")
+        dataUrl = image.startsWith("data:image") 
             ? image 
             : `data:image/jpeg;base64,${image}`;
     } else {
@@ -47,48 +51,70 @@ export async function extractTransactionInfo({
         dataUrl = `data:image/jpeg;base64,${btoa(binaryString)}`;
     }
 
-    // 1. Invoke the DeepSeek V4 Flash model via standard @cf namespace
-    const result = await env.AI.run("@cf/zai-org/glm-5.3-flash", {
-        messages: [
+    // 1. Construct the Grok Responses API payload
+    const requestBody = {
+        model: "grok-4.20-0309-non-reasoning",
+        input: [
             {
                 role: "user",
                 content: [
-                    { type: "text", text: question },
-                    { type: "image_url", image_url: { url: dataUrl } }
+                    {
+                        type: "input_image",
+                        image_url: dataUrl,
+                        detail: "high"
+                    },
+                    {
+                        type: "input_text",
+                        text: question
+                    }
                 ]
             }
         ],
-        // Setting temperature to 0 increases JSON strictness determinism
+        // Required per docs: Disables storing request/response history for privacy,
+        // and is highly recommended when pushing images to avoid request failures.
+        store: false,
+        // Using temperature 0 for JSON constraint determinism
         temperature: 0 
+    };
+
+    // 2. Invoke the Grok API directly via fetch
+    const response = await fetch("https://api.x.ai/v1/responses", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${env.XAI_API_KEY}`
+        },
+        body: JSON.stringify(requestBody)
     });
 
-    // 2. Extract the response safely
-    // Standard @cf models natively return `{ response: string }`, 
-    // but we fall back to the OpenAI compatible `choices` array just in case.
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Grok API Error:", errorText);
+        throw new Error(`Grok API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json() as any;
+
+    // 3. Parse the specific Responses API structure
+    // Grok returns an `output` array; the text itself is inside `content` elements with `type: "output_text"`
     const aiText = 
-        (result as any).response ||
-        (result as any).choices?.[0]?.message?.content ||
+        data.output?.find((msg: any) => msg.role === "assistant")?.content?.find((c: any) => c.type === "output_text")?.text ||
+        data.output?.[data.output?.length - 1]?.content?.[0]?.text ||
         "";
 
     if (!aiText) {
-        console.error("Empty AI Response:", JSON.stringify(result, null, 2));
+        console.error("Empty or unexpected Grok API Response:", JSON.stringify(data, null, 2));
         throw new Error("The AI returned an empty response.");
     }
 
     try {
         let cleanedText = aiText;
 
-        // 3. Strip DeepSeek reasoning blocks 
-        // (DeepSeek often generates <think>...</think> chain-of-thought blocks before the answer)
-        cleanedText = cleanedText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-
-        // 4. Safely extract JSON. Even with temperature 0, conversational models
-        // sometimes include conversational preambles.
+        // Strip standard Markdown formatting if the model still applied it
         const jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/i);
         if (jsonMatch) {
             cleanedText = jsonMatch[1];
         } else {
-            // If there's no code block wrapper, aggressively trim any standard markdown bounds
             cleanedText = cleanedText
                 .replace(/^```json\s*/i, "")
                 .replace(/\s*```$/i, "")
@@ -97,7 +123,7 @@ export async function extractTransactionInfo({
         
         return JSON.parse(cleanedText);
     } catch (error) {
-        console.error("Failed to parse DeepSeek response:", aiText);
+        console.error("Failed to parse Grok response:", aiText);
         throw new Error("The AI did not return a valid JSON object.");
     }
 }
