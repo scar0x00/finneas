@@ -6,26 +6,30 @@ import { SYSTEM } from "./SYSTEM_PROMPT";
 import { Update } from "grammy/types";
 import { arrayBufferToBase64 } from "./lib/arrayBufferToBase64";
 import { extractTransactionInfo } from "./lib/extractTransactionInfo";
+import { transcribe } from "./lib/transcribe";
 
 // bot.api.sendMessage(update?.message?.chat?.id, "Timeout ocurred!")
 // await ctx.replyWithChatAction("typing");
 
 export class UpdateProcessor extends DurableObject<Env> {
     bot: Bot;
+    instanceId = Math.random().toString(36).substring(7);
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
+
+        console.log(new Date(), `[DO ${this.instanceId}] Creating bot`);
 
         this.bot = new Bot(env.FINNEAS_BOT_TOKEN, {
             botInfo: JSON.parse(env.FINNEAS_BOT_INFO),
         });
 
         this.bot.command("version", async (ctx: Context) => {
-            await ctx.reply("v0.2.28");
+            await ctx.reply("v0.2.36");
         });
 
         this.bot.command("login", async (ctx: Context) => {
-            await ctx.reply("v0.2.24");
+            await ctx.reply("WIP");
         });
 
         this.bot.command("new", async (ctx: Context) => {
@@ -119,6 +123,7 @@ export class UpdateProcessor extends DurableObject<Env> {
         });
 
         this.bot.on("message:voice", async (ctx) => {
+            console.log(new Date(), "Voice handler starts");
             const file = await ctx.getFile();
 
             if (!file.file_path) {
@@ -129,6 +134,7 @@ export class UpdateProcessor extends DurableObject<Env> {
             const fileUrl =
                 `https://api.telegram.org/file/bot${env.FINNEAS_BOT_TOKEN}/${file.file_path}`;
 
+            console.log(new Date(), "Fetching voice starts");
             const response = await fetch(fileUrl);
             if (!response.ok) {
                 await ctx.reply("Failed to download voice note.");
@@ -136,24 +142,16 @@ export class UpdateProcessor extends DurableObject<Env> {
             }
 
             const audioBuffer = await response.arrayBuffer();
-            const base64Audio = arrayBufferToBase64(audioBuffer);
+            console.log(new Date(), "Fetching voice ends");
 
-            let transcription;
+            let stt;
             try {
-                const stt = await env.AI.run(
-                    "@cf/openai/whisper-large-v3-turbo",
-                    {
-                        audio: base64Audio,
-                        // Optional parameters:
-                        // task: "transcribe", // default is "transcribe" (or "translate" to translate to English)
-                        // language: "en",      // specify ISO language code or leave unset for auto-detection
-                    },
-                );
+                stt = await transcribe({
+                    audio: audioBuffer,
+                    env,
+                });
 
-                console.log(JSON.stringify(stt));
-                transcription = stt?.text?.trim();
-
-                if (!transcription) {
+                if (!stt) {
                     await ctx.reply(
                         "Could not transcribe any speech from the voice note.",
                     );
@@ -175,13 +173,14 @@ export class UpdateProcessor extends DurableObject<Env> {
                 chatId,
                 env,
             });
-            const answer = await agent.run(transcription);
+            const answer = await agent.run(stt);
             if (!answer) {
                 await ctx.reply("It looks the answer from the model is empty");
                 return;
             }
 
             await ctx.reply(answer);
+            console.log(new Date(), "Voice handler ends");
         });
 
         this.bot.on("message", async (ctx: Context) => {
@@ -216,18 +215,21 @@ export class UpdateProcessor extends DurableObject<Env> {
                 await ctx.reply("Something went wrong when responding");
             }
         });
-    }
 
-    async sayHello(): Promise<string> {
-        let result = this.ctx.storage.sql
-            .exec("SELECT 'Hello, World!' as greeting")
-            .one();
-        return result.greeting as string;
+        this.bot.catch((err) => {
+            console.error("Unhandled error in grammY middleware:", err.error);
+        });
+
+        console.log(new Date(), "Bot created");
     }
 
     async processUpdate(update: Update) {
-        console.log(new Date(), "Processing starts");
-        await this.bot.handleUpdate(update as Update);
-        console.log(new Date(), "Processing ends");
+        console.log(new Date(), `[DO ${this.instanceId}] Processing starts`);
+        try {
+            await this.bot.handleUpdate(update);
+        } catch (err) {
+            console.error(`[DO ${this.instanceId}] Error during handleUpdate:`, err);
+        }
+        console.log(new Date(), `[DO ${this.instanceId}] Processing ends`);
     }
 }

@@ -22,31 +22,31 @@
 			"remote": true
 		}
 	],
-	"queues": {
-		"producers": [
-			{
-				"binding": "TG_UPDATES",
-				"queue": "finneas-tg-updates",
-			}
-		],
-		"consumers": [
-			{
-				"queue": "finneas-tg-updates",
-				"max_batch_size": 10,
-				"max_batch_timeout": 0
-			}
-		]
-	},
+	// "queues": {
+	// 	"producers": [
+	// 		{
+	// 			"binding": "TG_UPDATES",
+	// 			"queue": "finneas-tg-updates",
+	// 		}
+	// 	],
+	// 	"consumers": [
+	// 		{
+	// 			"queue": "finneas-tg-updates",
+	// 			"max_batch_size": 10,
+	// 			"max_batch_timeout": 0
+	// 		}
+	// 	]
+	// },
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "UPDATE_PROCESSOR",
-				"class_name": "UpdateProcessor"
+				"name": "AGENT_DO",
+				"class_name": "AgentDO"
 			}
 		]
 	},
 	"exports": {
-		"UpdateProcessor": {
+		"AgentDO": {
 			"type": "durable-object",
 			"storage": "sqlite"
 		}
