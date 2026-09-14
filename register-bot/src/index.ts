@@ -12,7 +12,6 @@ export interface Env {
     FINNEAS_BOT_INFO: string;
     FINNEAS_BOT_TOKEN: string;
     AI: Ai;
-    CHATS: KVNamespace;
     QSTASH_TOKEN: string;
     QSTASH_CURRENT_SIGNING_KEY: string;
     QSTASH_NEXT_SIGNING_KEY: string;

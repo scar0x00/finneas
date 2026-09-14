@@ -15,13 +15,6 @@
 	"ai": {
 		"binding": "AI"
 	},
-	"kv_namespaces": [
-		{
-			"binding": "CHATS",
-			"id": "5897018705054f61b5703cbf8486f66f",
-			"remote": true
-		}
-	],
 	// "queues": {
 	// 	"producers": [
 	// 		{
