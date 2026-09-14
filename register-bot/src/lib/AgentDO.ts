@@ -14,7 +14,7 @@ export class AgentDO extends DurableObject<Env> {
     async init({
         SYSTEM,
         model,
-    }: AgentDOParams) {
+    }: AgentDOParams): Promise<void> {
         if (model) this.model = model;
         this.SYSTEM = SYSTEM;
         this.history = this.ctx.storage.sql.exec(`
@@ -22,7 +22,7 @@ export class AgentDO extends DurableObject<Env> {
             FROM chat_messages
             ORDER BY id ASC;
         `).toArray();
-        if (this.history.length = 0) {
+        if (this.history.length === 0) {
             const initMessage = {
                 role: "system",
                 content: this.SYSTEM,
@@ -32,8 +32,7 @@ export class AgentDO extends DurableObject<Env> {
                 initMessage,
             ];
         }
-
-        return this;
+        console.log(new Date(), "init done", this.history);
     }
 
     constructor(ctx: DurableObjectState, env: Env) {
@@ -62,6 +61,7 @@ export class AgentDO extends DurableObject<Env> {
                 content: userMssg,
             },
         ];
+        console.log(new Date(), "Chat so far", messages);
 
         const response = await this.env.AI.run(this.model, {
             messages: messages,

@@ -49,6 +49,6 @@
 		"AgentDO": {
 			"type": "durable-object",
 			"storage": "sqlite"
-		}
+		},
 	}
 }

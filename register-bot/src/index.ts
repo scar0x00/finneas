@@ -96,8 +96,7 @@ export default {
                     return new Response("Unauthorized", { status: 401 });
                 }
 
-                // 2. Forward to the Durable Object
-                console.log(new Date(), "Sending update to DO", bodyText);
+                console.log(new Date(), "Parsing body", bodyText);
                 const update = JSON.parse(bodyText) as Update;
                 const chatId = update.message?.chat?.id.toString();
 
@@ -107,14 +106,14 @@ export default {
 
                 // Keep the await here! If this takes 30s and times out,
                 // it throws an error, returns 500, and QStash retries it automatically.
-                console.log(new Date(), `[  Creating bot`);
+                console.log(new Date(), `Creating bot`);
 
                 const bot = new Bot(env.FINNEAS_BOT_TOKEN, {
                     botInfo: JSON.parse(env.FINNEAS_BOT_INFO),
                 });
 
                 bot.command("version", async (ctx: Context) => {
-                    await ctx.reply("v0.2.36");
+                    await ctx.reply("v0.2.37");
                 });
 
                 bot.command("login", async (ctx: Context) => {
@@ -334,10 +333,11 @@ export default {
 
                 console.log(new Date(), "Bot created");
 
+                await bot.handleUpdate(update);
+
                 return new Response("Processed successfully", { status: 200 });
             } catch (err) {
                 console.error("Error processing queue:", err);
-                // Returning a 500 tells QStash to retry this message later
                 return new Response("Internal Server Error", { status: 500 });
             }
         }
