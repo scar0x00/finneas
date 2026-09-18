@@ -1,10 +1,11 @@
 import type { ChatHistory } from "../types/Chat";
+import type { AgentDOHistory } from "./AgentDO"
 
 type runOpenrouterModelParams = {
-  model: string;
+  model?: string;
   OPENROUTER_API_KEY: string;
-  messages: ChatHistory;
-  reasoning: boolean;
+  messages: ChatHistory | AgentDOHistory;
+  reasoning?: boolean;
 };
 
 type Choice = {
@@ -25,11 +26,12 @@ type OpenRouterResult = {
   model: string
 };
 
+/// Reasoning is mandatory for the model z-ai/glm-5.3-flash
 export async function runOpenrouterModel({
   model = "z-ai/glm-5.3-flash",
   OPENROUTER_API_KEY,
   messages,
-  reasoning = false,
+  reasoning = true,
 }: runOpenrouterModelParams) {
   let response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -47,6 +49,7 @@ export async function runOpenrouterModel({
   });
   const result: OpenRouterResult = await response.json();
   if (!result.choices || !Array.isArray(result?.choices)) {
+    console.log(new Date(), "OpenRouter result", result);
     throw new Error(
       "AI.run returned succefully, but the response object is malformed",
     );

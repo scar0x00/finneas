@@ -2,13 +2,14 @@ import type { ChatMessage } from "../types/Chat";
 import type { Env } from "../index";
 import { DurableObject } from "cloudflare:workers";
 import { AgentDOParams } from "../types/AgentDOParams";
+import { runOpenrouterModel } from "./runOpenrouterModel";
 
-type AgentDOHistory = (ChatMessage | Record<string, SqlStorageValue>)[];
+export type AgentDOHistory = (ChatMessage | Record<string, SqlStorageValue>)[];
 
 export class AgentDO extends DurableObject<Env> {
     SYSTEM: string;
     chatId: string;
-    model: string = "@cf/zai-org/glm-5.3-flash";
+    model: string = "google/gemini-3.1-flash-lite";
     history: AgentDOHistory;
 
     async init({
@@ -63,19 +64,11 @@ export class AgentDO extends DurableObject<Env> {
         ];
         console.log(new Date(), "Chat so far", messages);
 
-        const response = await this.env.AI.run(this.model, {
-            messages: messages,
-            chat_template_kwargs: {
-                enable_thinking: true,
-            },
+        const response = await runOpenrouterModel({
+            OPENROUTER_API_KEY: this.env.OPENROUTER_API_KEY,
+            messages,
+            model: this.model
         });
-
-        if (!response.choices || !Array.isArray(response?.choices)) {
-            throw new Error(
-                "AI.run returned succefully, but the response object is malformed",
-            );
-        }
-        const answer = response?.choices[0].message.content;
 
         this.appendMessages([
             {
@@ -84,7 +77,7 @@ export class AgentDO extends DurableObject<Env> {
             },
             {
                 role: "assistant",
-                content: answer,
+                content: response.answer,
             },
         ]);
         this.history = [
@@ -95,10 +88,10 @@ export class AgentDO extends DurableObject<Env> {
             },
             {
                 role: "assistant",
-                content: answer,
+                content: response.answer,
             },
         ];
-        return answer;
+        return response.answer;
     }
 
     async clearChat() {

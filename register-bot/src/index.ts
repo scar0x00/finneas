@@ -112,7 +112,7 @@ export default {
                 });
 
                 bot.command("version", async (ctx: Context) => {
-                    await ctx.reply("v0.2.37");
+                    await ctx.reply("v0.2.41");
                 });
 
                 bot.command("login", async (ctx: Context) => {
