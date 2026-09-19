@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "finneas-finances-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "hyperdrive": [
+    {
+      "binding": "NEON_DB",
+      "id": "55461ff836b5491c94828cb9c2f6502b",
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
