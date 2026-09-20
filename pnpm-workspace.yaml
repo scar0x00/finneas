@@ -1,0 +1,7 @@
+# pnpm-workspace.yaml
+packages:
+  - 'finneas-finances-api'
+  - 'finneas-tg-bot'
+allowBuilds:
+  esbuild: true
+  workerd: true
