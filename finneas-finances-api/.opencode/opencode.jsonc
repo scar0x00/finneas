@@ -4,22 +4,28 @@
         "cloudflare-docs": {
             "type": "remote",
             "url": "https://docs.mcp.cloudflare.com/mcp",
-            "headers": {
-
-            }
+            "headers": {}
         },
         "obscura": {
             "type": "local",
-            "command": ["obscura", "mcp"],
+            "command": [
+                "obscura",
+                "mcp"
+            ],
+            "enabled": false
         },
         "cloudflare-browser-run": {
             "type": "remote",
             "url": "https://browser.mcp.cloudflare.com/mcp",
         },
-        "https://observability.mcp.cloudflare.com/mcp": {
+        "cloudflare-observability": {
             "type": "remote",
             "url": "https://observability.mcp.cloudflare.com/mcp",
             "enabled": false
+        },
+        "pg-aiguide": {
+            "type": "remote",
+            "url": "https://mcp.tigerdata.com/docs"
         }
     },
 }
