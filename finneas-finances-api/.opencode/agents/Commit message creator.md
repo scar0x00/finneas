@@ -1,7 +1,7 @@
 ---
 description: Commit message creator
 mode: subagent
-model: openrouter/google/gemini-3.5-flash-lite
+model: openrouter/z-ai/glm-5.3-flashx
 permissions:
   - action: "*"
     resource: "*"
