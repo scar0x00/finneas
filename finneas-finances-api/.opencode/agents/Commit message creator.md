@@ -1,7 +1,7 @@
 ---
 description: Commit message creator
 mode: subagent
-model: openrouter/z-ai/glm-5.3-flashx
+model: openrouter/openai/gpt-5.6-luna
 permissions:
   - action: "*"
     resource: "*"
