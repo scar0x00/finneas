@@ -3,8 +3,6 @@
 -- Target: PostgreSQL (Neon), database `finneas`
 -- Source: issue #1, comment 5747545688 (first-draft proposal)
 --
--- This file implements ONLY the draft from that comment. The remarks from the
--- follow-up review comment (5747574617) are deliberately NOT applied yet.
 --
 -- Naming: FK columns follow the draft's own `user_id` convention, so the
 -- draft's `counterparty`, `finnacial_instrument` (sic), `owner` and
@@ -12,9 +10,6 @@
 -- `financial_instrument_id`, `owner_id` and `financial_provider_id`.
 -- `DECIMAL` is written as `NUMERIC` (same type in Postgres).
 --
--- Nullability: the draft specifies none, so NOT NULL was only applied where a
--- row is meaningless without the field (PKs and the core movement fields);
--- everything else stays nullable.
 -- ============================================================================
 
 
@@ -22,9 +17,15 @@
 -- Enum types
 -- ----------------------------------------------------------------------------
 
--- movement_type: identifies what this entry is. Did money enter the financial
--- instrument or the opposite? Did the user borrow money, or lend it?
-CREATE TYPE movement_type AS ENUM ('income', 'egress', 'lend', 'borrow');
+-- movement_type: identifies what this entry is.
+CREATE TYPE movement_type AS ENUM (
+    'income',
+    'egress',
+    'lend',
+    'borrow',
+    'currency_conversion',
+    'self_transfer' -- user moves funds from one account to another with the same currency
+);
 
 CREATE TYPE currency_type AS ENUM ('fiat', 'crypto');
 
@@ -41,7 +42,7 @@ CREATE TYPE payment_channel_enum AS ENUM (
 
 CREATE TYPE provider_types AS ENUM ('bank', 'crypto_exchange');
 
-CREATE TYPE counter_party_visibility AS ENUM ('private', 'public');
+CREATE TYPE counterparty_visibility AS ENUM ('private', 'public');
 
 
 -- ----------------------------------------------------------------------------
@@ -62,10 +63,10 @@ CREATE TABLE users (
 -- Access pattern: each row will be probably written once and then only
 -- queried. Way more reads (really by a lot) than writes.
 CREATE TABLE currencies (
-    currency_code varchar(3)      PRIMARY KEY,  -- 3-character code for the currency
+    currency_code varchar(6)      PRIMARY KEY,  -- 6-character code for the currency
     currency_name varchar(20),                  -- currency friendly name
     issuer        text,                         -- who issues the currency
-    type          currency_type                 -- crypto or fiat
+    currency_type currency_type                 -- crypto or fiat
 );
 
 
@@ -77,9 +78,10 @@ CREATE TABLE currencies (
 -- than once every hour; still more read than written to. The draft suggests
 -- it may be more convenient to implement in Upstash or Cloudflare KV.
 CREATE TABLE conversion_rates (
-    currency_code   varchar(3)      NOT NULL UNIQUE REFERENCES currencies(currency_code),
-    conversion_rate numeric(40, 25) NOT NULL,
+    currency_code   varchar(6)      NOT NULL UNIQUE REFERENCES currencies(currency_code),
+    conversion_rate numeric(78, 36) NOT NULL, -- 1 unit = X USD
     last_updated    timestamptz     NOT NULL
+    
 );
 
 -- ----------------------------------------------------------------------------
@@ -119,10 +121,12 @@ CREATE TABLE financial_providers (
 -- ----------------------------------------------------------------------------
 -- Accounts, wallets and other financial products the person uses to save,
 -- send and receive money.
+-- For consistent balance calculations, a per-user cash instrument will be created
 CREATE TABLE financial_instruments (
     id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name                  varchar(100),
-    owner_id              bigint REFERENCES users(id),
+    currency_code         varchar(6) NOT NULL REFERENCES currencies(currency_code),
+    owner_id              bigint NOT NULL REFERENCES users(id),
     user_description      text,
     financial_provider_id bigint REFERENCES financial_providers(id)
 );
@@ -140,10 +144,42 @@ CREATE TABLE counterparties (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name        varchar(80),
     description text,
-    visibility  counter_party_visibility,
-    owner_id    bigint REFERENCES users(id)
+    owner_id    bigint REFERENCES users(id),
+    visibility  counterparty_visibility NOT NULL DEFAULT 'private',
+    CHECK (
+        (visibility = 'public' AND owner_id IS NULL)
+        OR
+        (visibility = 'private' AND owner_id IS NOT NULL)
+    )
 );
 
+
+--- new tables
+
+CREATE TYPE loan_direction AS ENUM ('in_favor', 'against');  -- receivable / liability
+
+CREATE TABLE loans (
+    id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id            bigint  NOT NULL REFERENCES users(id),
+    counterparty_id    bigint  NOT NULL REFERENCES counterparties(id),
+    direction          loan_direction NOT NULL,
+    principal_amount   numeric(78, 36) NOT NULL,          -- always in principal_currency
+    principal_currency varchar(6) NOT NULL REFERENCES currencies(currency_code),
+    origin_movement_id bigint, -- the lend/borrow cash leg
+    description        text,
+    due_date           timestamptz,                     -- feeds the reminder job
+    status             text NOT NULL DEFAULT 'open'
+                       CHECK (status IN ('open', 'settled', 'written_off')),
+    settled_at         timestamptz,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+
+
+    CHECK (principal_amount > 0),
+    CHECK ((status = 'settled') = (settled_at IS NOT NULL))
+);
+
+-- enforce "you can only tag movements with your own loan":
+ALTER TABLE loans ADD UNIQUE (id, user_id);
 
 -- ----------------------------------------------------------------------------
 -- movements
@@ -152,21 +188,100 @@ CREATE TABLE counterparties (
 -- be hundreds of rows per day (for a regular user). Not sure if there'll be
 -- heavy reading to it; this pattern will vary among users.
 --
--- TODO (from the draft): the financial instrument must belong to the same user
--- registering the movement. A plain FK cannot express that invariant; it will
--- need a composite FK or a trigger once the draft is validated.
 --
--- NOTE: the draft says amount is DECIMAL(18, 3) "with fixed decimal point
--- (2 decimal digits)", which is contradictory; scale 3 is kept as written.
+-- Conversion rate can be derived from: to_amount / from_amount if currencies are not the same
 CREATE TABLE movements (
-    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id                 bigint         NOT NULL REFERENCES users(id),
-    amount                  numeric(18, 3) NOT NULL,
-    currency                varchar(3)     NOT NULL REFERENCES currencies(currency_code),
-    made_at                 timestamptz    NOT NULL,
-    counterparty_id         bigint         REFERENCES counterparties(id),
-    financial_instrument_id bigint         REFERENCES financial_instruments(id),
-    payment_channel         payment_channel_enum,
-    description             text,          -- natural language description, filled by the AI model
-    type                    movement_type  NOT NULL
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES users(id),
+    movement_type movement_type NOT NULL,
+    made_at timestamptz NOT NULL,
+    registered_at timestamptz NOT NULL,
+    from_instrument_id bigint
+        REFERENCES financial_instruments(id),
+    to_instrument_id bigint
+        REFERENCES financial_instruments(id),
+    from_amount numeric(78, 36),
+    from_currency varchar(6)
+        REFERENCES currencies(currency_code),
+    to_amount numeric(78, 36),
+    to_currency varchar(6)
+        REFERENCES currencies(currency_code),
+    counterparty_id bigint
+        REFERENCES counterparties(id),
+    payment_channel payment_channel_enum,
+    description text,
+    loan_id bigint
+        REFERENCES loans(id),
+    loan_applied      numeric(78, 36),   -- amount applied, in the LOAN's currency
+    loan_applied_rate numeric(78, 36),  -- rate used if repayment currency ≠ loan currency
+
+    CHECK (
+        from_instrument_id IS NOT NULL
+        OR to_instrument_id IS NOT NULL
+    ),
+    CHECK (
+        (from_instrument_id IS NULL
+         AND from_amount IS NULL
+         AND from_currency IS NULL)
+        OR
+        (from_instrument_id IS NOT NULL
+         AND from_amount IS NOT NULL
+         AND from_currency IS NOT NULL)
+    ),
+    CHECK (
+        (to_instrument_id IS NULL
+         AND to_amount IS NULL
+         AND to_currency IS NULL)
+        OR
+        (to_instrument_id IS NOT NULL
+         AND to_amount IS NOT NULL
+         AND to_currency IS NOT NULL)
+    ),
+    CHECK (from_amount IS NULL OR from_amount > 0),
+    CHECK (to_amount IS NULL OR to_amount > 0),
+    CHECK ((loan_id IS NULL) = (loan_applied IS NULL)),
+
+    CHECK (loan_applied IS NULL OR loan_applied > 0),
+    CHECK (loan_applied_rate IS NULL OR loan_applied_rate > 0),
+    CHECK (loan_applied_rate IS NULL OR loan_id IS NOT NULL),
+
+    CHECK (loan_id IS NULL OR movement_type IN ('income', 'egress'))
 );
+
+
+ALTER TABLE movements ADD UNIQUE (id, user_id);
+
+ALTER TABLE loans
+    ADD CONSTRAINT loans_origin_movement_owner_fk
+    FOREIGN KEY (origin_movement_id, user_id)
+    REFERENCES movements(id, user_id);
+
+
+ALTER TABLE movements ADD FOREIGN KEY (loan_id, user_id) REFERENCES loans(id, user_id);
+
+ALTER TABLE financial_instruments
+    ADD CONSTRAINT financial_instruments_id_owner_unique
+    UNIQUE (id, owner_id);
+
+ALTER TABLE movements
+    ADD CONSTRAINT movements_from_instrument_owner_fk
+    FOREIGN KEY (from_instrument_id, user_id)
+    REFERENCES financial_instruments(id, owner_id);
+
+ALTER TABLE movements
+    ADD CONSTRAINT movements_to_instrument_owner_fk
+    FOREIGN KEY (to_instrument_id, user_id)
+    REFERENCES financial_instruments(id, owner_id);
+
+-- CREATE INDEX movements_loan_idx ON movements(loan_id) WHERE loan_id IS NOT NULL;
+-- CREATE INDEX loans_open_idx     ON loans(user_id, due_date) WHERE status = 'open';
+-- CREATE INDEX ON movements(user_id, made_at DESC);
+
+
+-- NOTE:
+-- Know your CHECK limits: a few invariants need cross-table lookups and can't
+-- be plain CHECKs — instrument currency vs. movement currency consistency, 
+-- self_transfer same-currency, repayment direction matching loan direction 
+-- (income for in_favor, egress for against), and "origin movement must be a 
+-- lend/borrow". Those belong in the app layer (or a trigger later). Worth a 
+-- comment in the file so nobody assumes the schema enforces them.
