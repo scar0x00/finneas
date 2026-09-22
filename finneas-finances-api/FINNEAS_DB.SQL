@@ -44,6 +44,8 @@ CREATE TYPE provider_types AS ENUM ('bank', 'crypto_exchange');
 
 CREATE TYPE counterparty_visibility AS ENUM ('private', 'public');
 
+CREATE TYPE loan_status AS ENUM ('open', 'settled', 'written_off');
+
 
 -- ----------------------------------------------------------------------------
 -- users
@@ -53,7 +55,8 @@ CREATE TYPE counterparty_visibility AS ENUM ('private', 'public');
 -- valid; its real definition (fields, Telegram identity, etc.) is still to be
 -- designed — see the follow-up comment on issue #1.
 CREATE TABLE users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tg_id bigint UNIQUE NOT NULL
 );
 
 
@@ -127,7 +130,7 @@ CREATE TABLE financial_instruments (
     name                  varchar(100),
     currency_code         varchar(6) NOT NULL REFERENCES currencies(currency_code),
     owner_id              bigint NOT NULL REFERENCES users(id),
-    user_description      text,
+    description           text,
     financial_provider_id bigint REFERENCES financial_providers(id)
 );
 
@@ -168,8 +171,7 @@ CREATE TABLE loans (
     origin_movement_id bigint, -- the lend/borrow cash leg
     description        text,
     due_date           timestamptz,                     -- feeds the reminder job
-    status             text NOT NULL DEFAULT 'open'
-                       CHECK (status IN ('open', 'settled', 'written_off')),
+    status             loan_status NOT NULL DEFAULT 'open',
     settled_at         timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
 
@@ -210,8 +212,7 @@ CREATE TABLE movements (
         REFERENCES counterparties(id),
     payment_channel payment_channel_enum,
     description text,
-    loan_id bigint
-        REFERENCES loans(id),
+    loan_id bigint,
     loan_applied      numeric(78, 36),   -- amount applied, in the LOAN's currency
     loan_applied_rate numeric(78, 36),  -- rate used if repayment currency ≠ loan currency
 

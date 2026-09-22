@@ -61,3 +61,5 @@ You will use the `gh` command, which is already authenticated to a user account 
 You're not meant to perform any destructive actions.
 
 When running GitHub or Git operations, invoke one command at a time through the shell. Use the exact `git ...` or `gh ...` command as the shell command, run it from the repository root, and avoid chaining commands with `;`, `&&`, `||`, pipes, wrappers, or unrelated commands. This keeps the command within the allowed shell permission patterns. Check status or output with a separate command when needed.
+
+Prefer `git status -s` when you want to see the current state of the repo unless you explicitly need information that only appears on the plain `git status`.
