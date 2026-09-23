@@ -1,6 +1,6 @@
-# Finneas — register-bot
+# Finneas — Telegram bot (`finneas-tg-bot`)
 
-Cloudflare Worker that receives Telegram updates and runs an AI expense-registration assistant. All source lives in `register-bot/`; the git root is this directory. Run every command from `register-bot/`.
+Cloudflare Worker that receives Telegram updates and runs an AI expense-registration assistant. All source lives in `finneas-tg-bot/`; the git root is this directory. Run every command from `finneas-tg-bot/`.
 
 ## Cloudflare Workers: fetch current docs first
 
@@ -10,7 +10,7 @@ Your knowledge of Workers APIs and limits may be outdated. Retrieve current docs
 - Limits/quotas: the product's `/platform/limits/` page (e.g. `/workers/platform/limits/`)
 - MCP: `https://docs.mcp.cloudflare.com/mcp`
 
-## Commands (run in `register-bot/`)
+## Commands (run in `finneas-tg-bot/`)
 
 | Command | Purpose |
 |---------|---------|
