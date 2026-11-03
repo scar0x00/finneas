@@ -1,0 +1,25 @@
+# Copy to .dev.vars (gitignored) and fill in. Never commit real values.
+
+# Telegram, from @BotFather. Use a separate dev bot, not the production one.
+FINNEAS_BOT_TOKEN=
+# JSON from https://api.telegram.org/bot<token>/getMe
+FINNEAS_BOT_INFO=
+# Webhook secret_token: `openssl rand -hex 32` (1-256 chars of A-Z a-z 0-9 _ -).
+# Telegram sends it in X-Telegram-Bot-Api-Secret-Token; requests without it get 401.
+TELEGRAM_WEBHOOK_SECRET=
+# Comma-separated Telegram user ids allowed to use the bot (also a var in wrangler.jsonc).
+ALLOWED_USER_IDS=
+
+# QStash, from the Upstash console
+QSTASH_TOKEN=
+QSTASH_CURRENT_SIGNING_KEY=
+QSTASH_NEXT_SIGNING_KEY=
+
+# OpenRouter. Use a key with a low credit limit for development.
+OPENROUTER_API_KEY=
+
+# Local only: process updates inline in POST / instead of through QStash.
+DIRECT_PROCESSING=true
+# Optional: point the QStash client at the local dev server (`pnpx @upstash/qstash-cli dev`)
+# when you work on the QStash path. Set DIRECT_PROCESSING=false then.
+# QSTASH_URL=http://127.0.0.1:8080

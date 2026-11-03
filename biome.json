@@ -1,0 +1,38 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": ["**", "!**/worker-configuration.d.ts", "!**/pnpm-lock.yaml", "!**/dist", "!extractors/**/*.json", "!**/*.md"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 140
+	},
+	"javascript": {
+		"formatter": { "quoteStyle": "double", "semicolons": "always" }
+	},
+	"json": {
+		"parser": { "allowComments": true, "allowTrailingCommas": true }
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"suspicious": {
+				"noConsole": "error",
+				"noExplicitAny": "off"
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["finneas-tg-bot/src/lib/log.ts", "**/scripts/**", "extractors/**", "finneas-tg-bot/test/**"],
+			"linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+		}
+	]
+}

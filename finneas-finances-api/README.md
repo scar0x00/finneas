@@ -1,21 +1,15 @@
-```txt
-npm install
-npm run dev
+# finneas-finances-api
+
+Hono Worker in front of the Finneas Neon Postgres database (through the `NEON_DB`
+Hyperdrive binding). It will store movements and expose them to the bot (#1, #5, #3).
+
+Status: a stub that answers `GET /`.
+
+```sh
+pnpm dev          # wrangler dev
+pnpm typecheck
+pnpm build        # wrangler deploy --dry-run
+pnpm cf-typegen   # regenerate worker-configuration.d.ts (CloudflareBindings)
 ```
 
-```txt
-npm run deploy
-```
-
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
-
-```txt
-npm run cf-typegen
-```
-
-Pass the `CloudflareBindings` as generics when instantiating `Hono`:
-
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-```
+Deploying is not automated yet; see `../docs/deploy.md` for the planned staging/production split.

@@ -1,7 +1,18 @@
-# pnpm-workspace.yaml
 packages:
-  - 'finneas-finances-api'
-  - 'finneas-tg-bot'
+  - finneas-finances-api
+  - finneas-tg-bot
+  - extractors
+
+# Shared versions: use "catalog:" in package.json so packages can't drift.
+catalog:
+  wrangler: ^4.135.0
+  typescript: ^5.9.3
+  vitest: ~4.1.0
+  "@cloudflare/vitest-plugin": ^1.1.13
+  "@types/node": ^26.6.2
+  "@biomejs/biome": ^2.3.8
+
 allowBuilds:
   esbuild: true
   workerd: true
+  lefthook: true

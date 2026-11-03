@@ -1,26 +1,34 @@
 {
-  "name": "finneas",
-  "version": "0.0.1",
-  "description": "The personal finances agent",
-  "main": "index.js",
-  "private": true,
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "12.5.1",
-      "onFail": "download"
-    }
-  },
-  "packageManager": "pnpm@12.5.1",
-  "type": "module",
-  "devDependencies": {
-    "@types/node": "^26.6.2",
-    "wrangler": "^4.135.0"
-  }
+	"name": "finneas",
+	"version": "0.0.1",
+	"description": "The personal finances agent",
+	"main": "index.js",
+	"private": true,
+	"scripts": {
+		"prepare": "lefthook install",
+		"test": "pnpm -r test",
+		"typecheck": "pnpm -r typecheck",
+		"build": "pnpm -r build",
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"format:check": "biome format ."
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "12.5.1",
+			"onFail": "download"
+		}
+	},
+	"packageManager": "pnpm@12.5.1",
+	"type": "module",
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"wrangler": "catalog:",
+		"@biomejs/biome": "catalog:",
+		"lefthook": "^2.0.4"
+	}
 }

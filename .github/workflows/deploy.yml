@@ -1,0 +1,106 @@
+name: Deploy
+
+# Staging: automatically after CI passes on main.
+# Production: manually (workflow_dispatch) or on a v* tag, through the `production`
+# GitHub Environment, which must be configured to require approval.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.event_name == 'push' && 'production' || 'staging') }}
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For workflow_run, deploy exactly the commit CI tested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy finneas-tg-bot (staging)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: finneas-tg-bot
+          packageManager: pnpm
+          command: deploy --env staging --var VERSION:${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Smoke test /health
+        if: ${{ vars.STAGING_HEALTH_URL != '' }}
+        env:
+          HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+          EXPECTED: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          for i in 1 2 3 4 5; do
+            body=$(curl -fsS "$HEALTH_URL" || true)
+            echo "$body"
+            if echo "$body" | grep -q "\"version\":\"$EXPECTED\""; then exit 0; fi
+            sleep 5
+          done
+          echo "Staging did not report version $EXPECTED" && exit 1
+
+  production:
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+      - name: Deploy finneas-tg-bot (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: finneas-tg-bot
+          packageManager: pnpm
+          command: deploy --env production --var VERSION:${{ github.sha }}
+      - name: Smoke test /health
+        if: ${{ vars.PRODUCTION_HEALTH_URL != '' }}
+        env:
+          HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL }}
+          EXPECTED: ${{ github.sha }}
+        run: |
+          for i in 1 2 3 4 5; do
+            body=$(curl -fsS "$HEALTH_URL" || true)
+            echo "$body"
+            if echo "$body" | grep -q "\"version\":\"$EXPECTED\""; then exit 0; fi
+            sleep 5
+          done
+          echo "Production did not report version $EXPECTED" && exit 1
