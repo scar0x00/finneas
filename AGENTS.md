@@ -8,21 +8,34 @@ layout, commands, architecture or conventions.
 
 | Path | What |
 |------|------|
-| `finneas-tg-bot/` | The Telegram bot Worker (Worker name `register-bot`). Most work happens here. |
+| `finneas-tg-bot/` | The Telegram bot Worker (package `finneas-tg-bot`, production Worker name `register-bot`). Most work happens here. |
 | `finneas-finances-api/` | Hono Worker in front of Neon (Hyperdrive). Still a stub. |
-| `extractors/` | Standalone scrapers, **not** part of the workspace. |
+| `extractors/` | Standalone Node scrapers. Outputs are gitignored; never commit scraped data. |
+| `docs/deploy.md` | Environments, secrets, deploys, rollback |
 
 There is exactly one `pnpm-lock.yaml` (root). Never add per-package lockfiles or
 `pnpm-workspace.yaml` files: a nested `pnpm-workspace.yaml` makes pnpm treat the
 package as its own workspace, with a different pnpm version and lockfile.
+Shared dependency versions live in the `catalog:` of the root `pnpm-workspace.yaml`
+(use `"catalog:"` in package.json). Every package's `tsconfig.json` extends
+`tsconfig.base.json`.
 
 ## Commands
 
-Root: `pnpm test` (all packages), `pnpm typecheck`, `pnpm build`.
+Root: `pnpm test` (all packages), `pnpm typecheck`, `pnpm build`, `pnpm lint`
+(`biome check`: lint + format + import order), `pnpm format` (write).
 
 CI (`.github/workflows/ci.yml`) runs on every PR and on `main`: frozen install,
-`pnpm -r typecheck`, `pnpm -r test`, `pnpm -r build` (`wrangler deploy --dry-run`).
-It has no secrets; keep tests offline. Run those same commands before pushing.
+`pnpm lint`, `pnpm format:check`, `pnpm -r typecheck`, `pnpm -r test`, `pnpm -r build`
+(`wrangler deploy --dry-run`). It has no secrets; keep tests offline. Run those same
+commands before pushing.
+
+Tooling: Biome (`biome.json`; tabs, width 140, Markdown excluded; `noConsole` everywhere
+except `src/lib/log.ts`, tests, scripts, extractors). lefthook pre-commit runs
+`biome check --write` on staged files and `pnpm -r typecheck` (`LEFTHOOK=0` to skip).
+Renovate (`renovate.json`) groups Cloudflare tooling. Conventional Commits; PRs use
+`.github/pull_request_template.md`. Bulk-format commits go in `.git-blame-ignore-revs`
+(merge PRs that contain one with a merge commit, not a squash, or the SHA changes).
 
 In `finneas-tg-bot/`:
 
@@ -181,3 +194,7 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   on OpenRouter (no network from the dev container). Swap the var if it doesn't.
 - [x] #16 local dev: `.dev.vars.example`, tunnel, `DIRECT_PROCESSING`, webhook scripts, README
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.
+- [x] #19 hygiene: catalog, base tsconfig, Biome + lefthook + Renovate, `.gitignore`,
+  extractors in the workspace with outputs ignored, package rename. The scraped
+  `tuzonamarket-productos-carabobo.json` and `TuZonaMarketSession.md` were removed from the
+  tree (still in history at `de96847`); uploading the JSON to R2 is left to Oscar.
