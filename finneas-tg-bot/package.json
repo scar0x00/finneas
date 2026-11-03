@@ -22,7 +22,8 @@
 		"@cloudflare/vitest-plugin": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:",
-		"wrangler": "catalog:"
+		"wrangler": "catalog:",
+		"finneas-finances-api": "workspace:*"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.30.0",

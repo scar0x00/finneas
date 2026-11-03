@@ -68,3 +68,21 @@ Once `finneas.dev` is on Cloudflare (#2), uncomment the `routes` entries in `wra
 
 `finneas-finances-api` is not deployed by the workflow yet. When it is, give it the same
 `env.staging` / `env.production` split, each with its own Neon branch and Hyperdrive config id.
+
+## Turning on receipt saving and agent tools (#20)
+
+The bot side is complete but **off** until the finances API implements its RPC methods
+(`finneas-finances-api/src/rpc.ts` currently throws; storage is #1/#5). The switch is the
+`FINANCES_API` service binding: without it the bot shows receipts read-only and offers the
+model no tools.
+
+1. Implement `FinancesApi.createMovement` / `listRecentMovements` / `getBalance` in
+   `finneas-finances-api` against the contract in `src/contract.ts` (idempotent on
+   `idempotencyKey`, `source` → the `created_via` column from #8), and deploy it per env.
+2. Add the binding to each environment in `finneas-tg-bot/wrangler.jsonc`:
+   ```jsonc
+   "services": [{ "binding": "FINANCES_API", "service": "finneas-finances-api", "entrypoint": "FinancesApi" }]
+   ```
+   (use the staging API's Worker name under `env.staging`).
+3. `pnpm cf-typegen`, then remove the hand-written `FINANCES_API` declaration in
+   `src/types/env.d.ts` if the generated type covers it.

@@ -132,10 +132,43 @@ Copy values exactly as printed (amounts with their symbols and separators, dates
 /** Reads a receipt image. Never throws for bad model output; returns a reason instead. */
 export async function extractReceipt(openrouter: OpenRouter, image: ArrayBuffer, logFields: LogFields = {}): Promise<ExtractResult> {
 	const res = await openrouter.vision({ prompt: PROMPT, image, schemaName: "receipt", schema: receiptJsonSchema(), logFields });
-	if (!res.content) return { ok: false, reason: "empty" };
+	return parseModelReceipt(res.content);
+}
+
+/** Model-format view of a normalised receipt, used as the starting point for edits. */
+function toModelReceipt(r: Receipt): ModelReceipt {
+	return { ...r, amount: r.amount === null ? null : String(r.amount) };
+}
+
+/** Applies the user's correction (free text) to a receipt. Never throws for bad model output. */
+export async function reviseReceipt(
+	openrouter: OpenRouter,
+	receipt: Receipt,
+	instruction: string,
+	logFields: LogFields = {},
+): Promise<ExtractResult> {
+	const res = await openrouter.structured({
+		messages: [
+			{
+				role: "system",
+				content:
+					"You correct a parsed bank receipt. Return the complete receipt JSON with the user's corrections applied and every other field unchanged. " +
+					"Write amounts and dates the way the user wrote them.",
+			},
+			{ role: "user", content: `Receipt:\n${JSON.stringify(toModelReceipt(receipt))}\n\nCorrection: ${instruction}` },
+		],
+		schemaName: "receipt",
+		schema: receiptJsonSchema(),
+		logFields,
+	});
+	return parseModelReceipt(res.content);
+}
+
+function parseModelReceipt(content: string | null): ExtractResult {
+	if (!content) return { ok: false, reason: "empty" };
 	let json: unknown;
 	try {
-		json = JSON.parse(res.content);
+		json = JSON.parse(content);
 	} catch {
 		return { ok: false, reason: "invalid_json" };
 	}

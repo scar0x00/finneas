@@ -2,7 +2,10 @@ import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isRetryable } from "../src/lib/errors";
-import { SYSTEM } from "../src/SYSTEM_PROMPT";
+import { systemPrompt } from "../src/SYSTEM_PROMPT";
+
+const SYSTEM = systemPrompt();
+
 import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
 import { CHAT_PATH, chatCalls, chatCompletion, mockChat, OPENROUTER_HOST } from "./helpers/openrouter";
 
@@ -28,7 +31,7 @@ describe("AgentDO.chat()", () => {
 	it("answers and stores the user and assistant messages with the update id", async () => {
 		const agent = agentFor();
 		const result = await agent.chat(input("hello", 501));
-		expect(result).toEqual({ answer: "echo: hello", duplicate: false });
+		expect(result).toEqual({ answer: "echo: hello", duplicate: false, proposals: [] });
 		expect(await rows(agent)).toEqual([
 			{ role: "user", content: "hello", update_id: 501 },
 			{ role: "assistant", content: "echo: hello", update_id: 501 },
@@ -85,7 +88,7 @@ describe("AgentDO.chat()", () => {
 		const agent = agentFor();
 		const first = await agent.chat(input("hello", 777));
 		const second = await agent.chat(input("hello", 777));
-		expect(second).toEqual({ answer: first.answer, duplicate: true, replied: false });
+		expect(second).toEqual({ answer: first.answer, duplicate: true, replied: false, proposals: [] });
 		expect(chatCalls(mock)).toHaveLength(1);
 		expect(await rows(agent)).toHaveLength(2);
 	});
@@ -94,7 +97,7 @@ describe("AgentDO.chat()", () => {
 		const agent = agentFor();
 		await agent.chat(input("hello", 778));
 		await agent.markReplied(778);
-		expect(await agent.chat(input("hello", 778))).toEqual({ answer: "echo: hello", duplicate: true, replied: true });
+		expect(await agent.chat(input("hello", 778))).toEqual({ answer: "echo: hello", duplicate: true, replied: true, proposals: [] });
 	});
 
 	it("runs concurrent calls one after the other so the second sees the first exchange", async () => {

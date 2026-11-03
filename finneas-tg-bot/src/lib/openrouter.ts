@@ -120,6 +120,13 @@ export interface OpenRouter {
 		mimeType?: string;
 		logFields?: LogFields;
 	}): Promise<ChatResponse>;
+	/** Text-only completion constrained to a strict JSON schema. */
+	structured(input: {
+		messages: ChatMessage[];
+		schemaName: string;
+		schema: Record<string, unknown>;
+		logFields?: LogFields;
+	}): Promise<ChatResponse>;
 	transcribe(audio: ArrayBuffer, logFields?: LogFields): Promise<string>;
 }
 
@@ -183,6 +190,20 @@ export function createOpenRouter(env: OpenRouterEnv): OpenRouter {
 					temperature: 0,
 				},
 				{ ...logFields, image_bytes: image.byteLength },
+				true,
+			);
+		},
+
+		structured({ messages, schemaName, schema, logFields = {} }) {
+			return completion(
+				"structured",
+				{
+					model: chatModel,
+					messages,
+					response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
+					temperature: 0,
+				},
+				logFields,
 				true,
 			);
 		},

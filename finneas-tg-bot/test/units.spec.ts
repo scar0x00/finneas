@@ -32,3 +32,16 @@ describe("fetch mock", () => {
 		}
 	});
 });
+
+import { SYSTEM, systemPrompt } from "../src/SYSTEM_PROMPT";
+
+describe("systemPrompt", () => {
+	it("appends today's date so relative dates resolve", () => {
+		expect(systemPrompt(new Date("2026-11-03T22:00:00Z"))).toBe(`${SYSTEM}\n\nToday's date is 2026-11-03 (UTC).`);
+	});
+
+	it("tells the model that register_movement needs confirmation", () => {
+		expect(SYSTEM).toMatch(/register_movement/);
+		expect(SYSTEM).toMatch(/Save button/);
+	});
+});

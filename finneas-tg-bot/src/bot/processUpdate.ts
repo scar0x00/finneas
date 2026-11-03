@@ -33,7 +33,7 @@ export function handlerKind(update: Update): string {
 
 /** Update types the bot handles; everything else is acknowledged and dropped. */
 export function isSupportedUpdate(update: Update): boolean {
-	return Boolean(update?.message?.chat?.id);
+	return Boolean(update?.message?.chat?.id || (update?.callback_query?.data && update.callback_query.message?.chat?.id));
 }
 
 /**

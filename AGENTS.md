@@ -105,7 +105,10 @@ storage or limits.
 | `bot/files.ts` | Telegram file download with the 20 MB guard |
 | `lib/openrouter.ts` | **Only** OpenRouter client: `chat`, `vision` (strict `json_schema`), `transcribe`; models from `CHAT_MODEL`/`VISION_MODEL`/`STT_MODEL` |
 | `lib/receipt.ts` | Zod `ModelReceiptSchema` (raw strings from the model) → `normaliseReceipt` (amount/currency/date parsing in code) → `ReceiptSchema`; `extractReceipt` never throws on bad model output |
-| `lib/AgentDO.ts` | Per-chat Durable Object |
+| `lib/AgentDO.ts` | Per-chat Durable Object: history, tool loop, pending movements |
+| `bot/handlers/callbacks.ts`, `bot/pending.ts` | Save / Edit / Discard buttons (`p:<id>:<action>`, ≤ 64 bytes) |
+| `lib/movements.ts`, `lib/tools.ts` | Movement drafts, `register_movement` / `list_recent_movements` / `get_balance` |
+| `src/types/env.d.ts` | Hand-declared optional `FINANCES_API` binding (not in wrangler.jsonc yet) |
 | `lib/{errors,log,security,telegram}.ts` | Retry classification, structured logs, auth, Telegram output helpers |
 
 `Env` is the generated global from `worker-configuration.d.ts` (no hand-written interface).
@@ -160,8 +163,31 @@ Telegram → `POST /` → QStash publish (`deduplicationId = update_id`) → `PO
   Context = system + last `MAX_CONTEXT_MESSAGES - 1` stored rows + the new message
   (var, default 30). Model from `CHAT_MODEL` var.
 - Schema changes: append to `MIGRATIONS` (never edit a released one). They run in the
-  constructor under `blockConcurrencyWhile`, tracked in `schema_migrations`. Current: v2.
-  SQLite cannot alter a CHECK constraint; rebuilding the table is needed for new roles.
+  constructor under `blockConcurrencyWhile`, tracked in `schema_migrations`. Current: v3
+  (v3 rebuilt `chat_messages` for `tool` rows, `tool_calls`, `tool_call_id`, nullable
+  content, and added `pending_movements` + `chat_state`). SQLite cannot alter a CHECK
+  constraint; rebuild the table for new roles.
+- `role = 'system'` rows are short notes (e.g. "receipt … saved as movement 12"), never the
+  prompt. Context trimming drops leading orphan `tool` rows.
+- The system prompt is `systemPrompt()` = `SYSTEM` + today's date (UTC).
+
+## Saving movements (#20)
+
+- Nothing reaches the finances API without a Save tap. Receipts (photo) and agent
+  proposals (`register_movement` tool) become rows in the DO's `pending_movements`; the bot
+  shows them with buttons. Save → `FINANCES_API.createMovement()` with
+  `idempotencyKey = pending:<chatId>:<id>` and `source: "telegram_bot"` → DO marks it saved
+  and writes a history note → message edited to "Saved ✓".
+- Edit (receipts only) stores `chat_state.editing`; the next text message is applied with
+  `reviseReceipt()` (strict JSON schema) instead of going to the agent.
+- Tool loop: up to `MAX_TOOL_ROUNDS` (5) model calls per message; tool errors go back to
+  the model as `error: …` text, never to the user verbatim.
+- Feature switch = presence of the `FINANCES_API` service binding (RPC to
+  `finneas-finances-api`'s `FinancesApi` entrypoint; contract in
+  `finneas-finances-api/src/contract.ts`, imported as `finneas-finances-api/contract`).
+  Not bound in `wrangler.jsonc` yet because the API methods are unimplemented (#5);
+  see `docs/deploy.md`. Tests bind an in-memory fake (`test/fixtures/financesApiFake.js`,
+  helpers in `test/helpers/finances.ts`, reset it in `beforeEach`).
 
 ## Logging
 
@@ -194,6 +220,9 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   on OpenRouter (no network from the dev container). Swap the var if it doesn't.
 - [x] #16 local dev: `.dev.vars.example`, tunnel, `DIRECT_PROCESSING`, webhook scripts, README
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.
+- [x] #20 bot side: pending receipts with Save/Edit/Discard, agent tools with confirmation,
+  finances API contract + entrypoint stub. **Open**: implement the API methods on Neon
+  (#1/#5, schema on the `dev` branch, `created_via` from #8), then add the service binding.
 - [x] #19 hygiene: catalog, base tsconfig, Biome + lefthook + Renovate, `.gitignore`,
   extractors in the workspace with outputs ignored, package rename. The scraped
   `tuzonamarket-productos-carabobo.json` and `TuZonaMarketSession.md` were removed from the

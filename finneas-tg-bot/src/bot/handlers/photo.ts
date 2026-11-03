@@ -3,6 +3,7 @@ import { log } from "../../lib/log";
 import { createOpenRouter } from "../../lib/openrouter";
 import { extractReceipt, formatReceiptHtml } from "../../lib/receipt";
 import { downloadTelegramFile, tooLarge } from "../files";
+import { pendingFooter, pendingKeyboard } from "../pending";
 
 export function registerPhoto(bot: Bot, env: Env): void {
 	bot.on("message:photo", async (ctx) => {
@@ -28,6 +29,12 @@ export function registerPhoto(bot: Bot, env: Env): void {
 			return;
 		}
 
-		await ctx.reply(formatReceiptHtml(result.receipt), { parse_mode: "HTML" });
+		if (!env.FINANCES_API) {
+			// Saving is off until the finances API exists: just show what was read.
+			await ctx.reply(formatReceiptHtml(result.receipt), { parse_mode: "HTML" });
+			return;
+		}
+		const view = await env.AGENT_DO.getByName(String(ctx.chatId)).createPendingReceipt(result.receipt);
+		await ctx.reply(view.html + pendingFooter(view), { parse_mode: "HTML", reply_markup: pendingKeyboard(view) });
 	});
 }

@@ -15,5 +15,8 @@
 		"wrangler": "catalog:",
 		"typescript": "catalog:"
 	},
-	"private": true
+	"private": true,
+	"exports": {
+		"./contract": "./src/contract.ts"
+	}
 }

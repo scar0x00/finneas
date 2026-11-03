@@ -1,4 +1,5 @@
 import { Bot } from "grammy";
+import { registerCallbacks } from "./handlers/callbacks";
 import { registerCommands } from "./handlers/commands";
 import { registerPhoto } from "./handlers/photo";
 import { registerText } from "./handlers/text";
@@ -11,6 +12,7 @@ export function newBot(env: Env): Bot {
 /** Registers every handler. Order matters: commands before the generic text handler. */
 export function registerHandlers(bot: Bot, env: Env): void {
 	registerCommands(bot, env);
+	registerCallbacks(bot, env);
 	registerPhoto(bot, env);
 	registerVoice(bot, env);
 	registerText(bot, env);

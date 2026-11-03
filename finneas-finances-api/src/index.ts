@@ -7,3 +7,5 @@ app.get("/", (c) => {
 });
 
 export default app;
+
+export { FinancesApi } from "./rpc";
