@@ -1,40 +1,58 @@
-# Finneas — register-bot
+# Finneas — agent guide
 
-Cloudflare Worker that receives Telegram updates and runs an AI expense-registration assistant. All source lives in `register-bot/`; the git root is this directory. Run every command from `register-bot/`.
+Finneas is a personal-finance Telegram bot on Cloudflare Workers. This file is the
+hand-off note for coding agents: read it first, and keep it current when you change
+layout, commands, architecture or conventions.
 
-## Cloudflare Workers: fetch current docs first
+## Layout (pnpm workspace, run `pnpm install` at the root)
 
-Your knowledge of Workers APIs and limits may be outdated. Retrieve current docs before touching bindings, Durable Objects, storage, or limits:
+| Path | What |
+|------|------|
+| `finneas-tg-bot/` | The Telegram bot Worker (Worker name `register-bot`). Most work happens here. |
+| `finneas-finances-api/` | Hono Worker in front of Neon (Hyperdrive). Still a stub. |
+| `extractors/` | Standalone scrapers, **not** part of the workspace. |
 
-- https://developers.cloudflare.com/workers/
-- Limits/quotas: the product's `/platform/limits/` page (e.g. `/workers/platform/limits/`)
-- MCP: `https://docs.mcp.cloudflare.com/mcp`
+There is exactly one `pnpm-lock.yaml` (root). Never add per-package lockfiles or
+`pnpm-workspace.yaml` files: a nested `pnpm-workspace.yaml` makes pnpm treat the
+package as its own workspace, with a different pnpm version and lockfile.
 
-## Commands (run in `register-bot/`)
+## Commands
+
+Root: `pnpm test` (all packages), `pnpm typecheck`.
+
+In `finneas-tg-bot/`:
 
 | Command | Purpose |
 |---------|---------|
-| `pnpm install` | Install. pnpm only (`pnpm-lock.yaml`); `pnpm-workspace.yaml` pre-approves the `esbuild`/`workerd` build scripts required by pnpm 11+ |
-| `pnpm dev` | Local dev (`wrangler dev`) |
-| `pnpm test` | Vitest watch; `pnpm test -- run` for a single pass |
-| `pnpx tsc --noEmit` | Typecheck — there is no `typecheck` script |
-| `pnpx wrangler types` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` bindings |
-| `pnpm deploy` | Deploy to Cloudflare |
+| `pnpm test` | Vitest, single pass (`pnpm test:watch` for watch mode) |
+| `pnpm typecheck` | `tsc` over `src` and `test` |
+| `pnpm cf-typegen` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
+| `pnpm dev` / `pnpm deploy` | `wrangler dev` / `wrangler deploy` |
 
-## Architecture
+## Cloudflare Workers: fetch current docs first
 
-- `src/index.ts` `fetch` is the entire HTTP surface:
-  - `POST /` — Telegram webhook. Sends a typing action, publishes the update to QStash, returns 200 immediately.
-  - `POST /process` — verifies `Upstash-Signature` with the QStash signing keys, builds a grammY `Bot`, registers handlers, then calls `bot.handleUpdate`. Async processing goes through QStash, **not** Cloudflare Queues (the `queues` block in `wrangler.jsonc` is commented out).
-- `src/lib/AgentDO.ts` — `AgentDO` Durable Object, one per Telegram chat via `env.AGENT_DO.getByName(chatId)`. History is stored in SQLite (`ctx.storage.sql`) in a `chat_messages` table. The constructor throws if the DO is not named.
-- `src/lib/runOpenrouterModel.ts`, `transcribe.ts`, `extractTransactionInfo.ts` — all model calls go to OpenRouter over `fetch` (chat / Whisper / vision). The `AI` binding in `wrangler.jsonc` is declared but unused.
-- `Env` is hand-written in `src/index.ts` while `worker-configuration.d.ts` is generated; keep them consistent.
+Your knowledge of Workers APIs and limits may be outdated. Check
+https://developers.cloudflare.com/workers/ before touching bindings, Durable Objects,
+storage or limits.
 
-## Environment / secrets
+## Testing (finneas-tg-bot)
 
-- `.dev.vars` (gitignored) holds `FINNEAS_BOT_TOKEN`, `FINNEAS_BOT_INFO`, `QSTASH_*`, `OPENROUTER_API_KEY`. OpenRouter-dependent features fail locally because the key ships empty. Never commit this file.
+- Work test-first: add or change a spec, see it fail, then implement.
+- Tests run fully offline through `@cloudflare/vitest-plugin` (`remoteBindings: false`).
+  Fake secrets come from `test/helpers/bindings.ts` via `miniflare.bindings` in
+  `vitest.config.mts`; tests never read `.dev.vars`. Add new vars/secrets there too.
+- All outbound HTTP goes through `mockFetch()` (`test/helpers/fetchMock.ts`), which
+  spies on `globalThis.fetch` and **throws on any unmocked host**. The DO runs in the
+  same isolate, so the mock applies to it as well.
+- Helpers: `telegram.ts` (update factories, `mockTelegram`, `sentTexts`),
+  `openrouter.ts` (`mockChat`, `mockTranscription`, `chatCalls`), `qstashApi.ts`
+  (publish mock), `qstash.ts` (`signQStash` builds real QStash JWTs), `worker.ts`
+  (`callWorker` waits for `ctx.waitUntil`, `webhookRequest`, `processRequest`).
+- Durable Object tests use unique names per test (`getByName`) and
+  `runInDurableObject` to read SQLite directly.
 
-## Testing quirks
+## Roadmap status
 
-- `test/index.spec.ts` is stale create-cloudflare boilerplate: it expects `"Hello World!"` but the worker returns `"Not Found"` for GET, so `pnpm test` currently fails. Fix or replace it; do not treat it as a spec.
-- Vitest runs through `@cloudflare/vitest-plugin` bound to `wrangler.jsonc`; tests use their own `test/tsconfig.json`.
+Issue #9 tracks the review follow-ups (#10–#20). Progress:
+
+- [x] #12 offline test suite (unused `AI` binding removed; nested lockfiles removed)

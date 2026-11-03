@@ -6,17 +6,21 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
-		"test": "vitest",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p test",
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-plugin": "^1.0.0",
 		"typescript": "^5.5.2",
-		"vitest": "~4.1.0"
+		"vitest": "~4.1.0",
+		"wrangler": "^4.135.0"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.30.0",
 		"@upstash/qstash": "^2.11.3",
 		"grammy": "^1.46.0"
-	}
+	},
+	"type": "module"
 }

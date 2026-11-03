@@ -11,7 +11,6 @@ export interface Env {
     OPENROUTER_API_KEY: string;
     FINNEAS_BOT_INFO: string;
     FINNEAS_BOT_TOKEN: string;
-    AI: Ai;
     QSTASH_TOKEN: string;
     QSTASH_CURRENT_SIGNING_KEY: string;
     QSTASH_NEXT_SIGNING_KEY: string;
