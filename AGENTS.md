@@ -70,6 +70,11 @@ storage or limits.
   `openrouter.ts` (`mockChat`, `mockTranscription`, `chatCalls`), `qstashApi.ts`
   (publish mock), `qstash.ts` (`signQStash` builds real QStash JWTs), `worker.ts`
   (`callWorker` waits for `ctx.waitUntil`, `webhookRequest`, `processRequest`).
+- Never use `expect(stubCall()).rejects` on a DO RPC promise: it reads pipelined
+  properties, which create extra promises that reject unhandled and fail the run in CI.
+  Use `.then(() => null, (e) => e)` and assert on the error.
+- Check the exit code of `pnpm test`, not just the summary: unhandled rejections fail
+  the run even when every test passes.
 - Durable Object tests use unique names per test (`getByName`) and
   `runInDurableObject` to read SQLite directly.
 

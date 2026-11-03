@@ -120,7 +120,13 @@ describe("AgentDO.chat()", () => {
 	it("keeps working after a failed call in the queue", async () => {
 		const agent = agentFor();
 		mock.once(OPENROUTER_HOST, CHAT_PATH, () => jsonResponse({}, 400));
-		await expect(agent.chat(input("bad"))).rejects.toThrow();
+		// Don't use expect(...).rejects on RPC promises: it touches pipelined properties,
+		// which creates extra promises that reject unhandled.
+		const err = await agent.chat(input("bad")).then(
+			() => null,
+			(e: unknown) => e,
+		);
+		expect(err).toBeInstanceOf(Error);
 		expect(await agent.chat(input("good"))).toMatchObject({ answer: "echo: good" });
 	});
 
