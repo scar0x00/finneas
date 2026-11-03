@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { env } from "cloudflare:workers";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { chatCalls, chatCompletion, CHAT_PATH, mockChat, OPENROUTER_HOST } from "./helpers/openrouter";
+import { env } from "cloudflare:workers";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isRetryable } from "../src/lib/errors";
 import { SYSTEM } from "../src/SYSTEM_PROMPT";
+import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
+import { CHAT_PATH, chatCalls, chatCompletion, mockChat, OPENROUTER_HOST } from "./helpers/openrouter";
 
 let mock: FetchMock;
 let seq = 0;
@@ -166,7 +166,9 @@ describe("AgentDO schema migrations", () => {
 				role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant')),
 				content TEXT NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
-			state.storage.sql.exec("INSERT INTO chat_messages (role, content) VALUES ('system', 'OLD STALE PROMPT'), ('user', 'u1'), ('assistant', 'a1')");
+			state.storage.sql.exec(
+				"INSERT INTO chat_messages (role, content) VALUES ('system', 'OLD STALE PROMPT'), ('user', 'u1'), ('assistant', 'a1')",
+			);
 		});
 		await evictDurableObject(agent);
 

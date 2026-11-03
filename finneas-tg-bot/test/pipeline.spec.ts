@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { editedMessageUpdate, mockTelegram, photoUpdate, sentTexts, telegramCalls, textUpdate, voiceUpdate } from "./helpers/telegram";
+import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
+import { CHAT_PATH, chatCalls, chatCompletion, mockChat, OPENROUTER_HOST, STT_PATH } from "./helpers/openrouter";
 import { mockQStashPublish, publishCalls } from "./helpers/qstashApi";
-import { chatCalls, chatCompletion, CHAT_PATH, mockChat, OPENROUTER_HOST, STT_PATH } from "./helpers/openrouter";
+import { editedMessageUpdate, mockTelegram, photoUpdate, sentTexts, telegramCalls, textUpdate, voiceUpdate } from "./helpers/telegram";
 import { callWorker, processRequest, webhookRequest } from "./helpers/worker";
 
 let mock: FetchMock;
@@ -106,7 +106,8 @@ describe("/process retry policy", () => {
 		let sends = 0;
 		mock.on("api.telegram.org", /sendMessage$/, (call) => {
 			sends++;
-			if (sends === 1) return jsonResponse({ ok: true, result: { message_id: 1, date: 0, chat: { id: 1, type: "private" }, text: call.json().text } });
+			if (sends === 1)
+				return jsonResponse({ ok: true, result: { message_id: 1, date: 0, chat: { id: 1, type: "private" }, text: call.json().text } });
 			return jsonResponse({ ok: false, error_code: 500, description: "boom" }, 500);
 		});
 		const long = "x".repeat(5000); // forces a second sendMessage chunk, which fails
@@ -122,7 +123,8 @@ describe("/process retry policy", () => {
 		mock.spy.mockImplementationOnce;
 		const original = mock.spy.getMockImplementation()!;
 		mock.spy.mockImplementation(async (input: any, init?: any) => {
-			if (String(input instanceof Request ? input.url : input).includes(OPENROUTER_HOST)) seen.push(init?.signal ?? (input as Request).signal);
+			if (String(input instanceof Request ? input.url : input).includes(OPENROUTER_HOST))
+				seen.push(init?.signal ?? (input as Request).signal);
 			return original(input, init);
 		});
 		await callWorker(await processRequest(textUpdate("hello")));
@@ -189,7 +191,10 @@ describe("/new", () => {
 		await callWorker(await processRequest(textUpdate("remember me", { chatId })));
 		await callWorker(await processRequest(textUpdate("/new", { chatId })));
 		await callWorker(await processRequest(textUpdate("again", { chatId })));
-		const last = chatCalls(mock).at(-1)!.json().messages.map((m: any) => m.content);
+		const last = chatCalls(mock)
+			.at(-1)!
+			.json()
+			.messages.map((m: any) => m.content);
 		expect(last).not.toContain("remember me");
 	});
 });

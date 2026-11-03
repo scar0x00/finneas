@@ -41,7 +41,12 @@ export function splitMessage(text: string, limit = TELEGRAM_MAX_MESSAGE): string
 }
 
 /** Sends `text` as one or more messages so Telegram's 4096-character limit is never hit. */
-export async function sendLongMessage(api: Api, chatId: number | string, text: string, other?: Parameters<Api["sendMessage"]>[2]): Promise<void> {
+export async function sendLongMessage(
+	api: Api,
+	chatId: number | string,
+	text: string,
+	other?: Parameters<Api["sendMessage"]>[2],
+): Promise<void> {
 	for (const chunk of splitMessage(text)) {
 		await api.sendMessage(chatId, chunk, other);
 	}

@@ -2,8 +2,8 @@ import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { env } from "cloudflare:workers";
 import type { Update } from "grammy/types";
 import worker from "../../src/index";
-import { signQStash } from "./qstash";
 import { TEST_BINDINGS } from "./bindings";
+import { signQStash } from "./qstash";
 
 export const SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token";
 
@@ -47,7 +47,8 @@ export async function processRequest(
 ): Promise<Request> {
 	const body = typeof update === "string" ? update : JSON.stringify(update);
 	const headers: Record<string, string> = { "Content-Type": "application/json" };
-	const signature = opts.signature === undefined ? await signQStash(body, { url: opts.signFor ?? PROCESS_URL, key: opts.key }) : opts.signature;
+	const signature =
+		opts.signature === undefined ? await signQStash(body, { url: opts.signFor ?? PROCESS_URL, key: opts.key }) : opts.signature;
 	if (signature !== null) headers["Upstash-Signature"] = signature;
 	return new Request(PROCESS_URL, { method: "POST", headers, body });
 }

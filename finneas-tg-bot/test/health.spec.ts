@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mockFetch, type FetchMock } from "./helpers/fetchMock";
+import { type FetchMock, mockFetch } from "./helpers/fetchMock";
 import { mockTelegram, sentTexts, textUpdate } from "./helpers/telegram";
 import { callWorker, ORIGIN, processRequest } from "./helpers/worker";
 

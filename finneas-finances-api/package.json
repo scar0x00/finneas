@@ -1,19 +1,19 @@
 {
-  "name": "finneas-finances-api",
-  "type": "module",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "build": "wrangler deploy --dry-run --outdir dist",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "hono": "^4.13.7"
-  },
-  "devDependencies": {
-    "wrangler": "catalog:",
-    "typescript": "catalog:"
-  },
-  "private": true
+	"name": "finneas-finances-api",
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
+		"build": "wrangler deploy --dry-run --outdir dist",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"hono": "^4.13.7"
+	},
+	"devDependencies": {
+		"wrangler": "catalog:",
+		"typescript": "catalog:"
+	},
+	"private": true
 }

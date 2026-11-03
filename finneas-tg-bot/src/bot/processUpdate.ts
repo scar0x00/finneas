@@ -1,8 +1,8 @@
 import type { Update } from "grammy/types";
 import { isRetryable } from "../lib/errors";
 import { log, logError, since } from "../lib/log";
-import { FileTooLargeError } from "./files";
 import { newBot, registerHandlers } from "./createBot";
+import { FileTooLargeError } from "./files";
 
 const FRIENDLY_ERROR = "Sorry, something went wrong on my side. Please try again in a moment.";
 

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { mockTelegram, photoUpdate, textUpdate, voiceUpdate } from "./helpers/telegram";
-import { mockQStashPublish } from "./helpers/qstashApi";
-import { chatCompletion, CHAT_PATH, mockChat, mockTranscription, OPENROUTER_HOST } from "./helpers/openrouter";
-import { callWorker, processRequest, webhookRequest } from "./helpers/worker";
 import { log, logError } from "../src/lib/log";
+import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
+import { CHAT_PATH, chatCompletion, mockChat, mockTranscription, OPENROUTER_HOST } from "./helpers/openrouter";
+import { mockQStashPublish } from "./helpers/qstashApi";
+import { mockTelegram, photoUpdate, textUpdate, voiceUpdate } from "./helpers/telegram";
+import { callWorker, processRequest, webhookRequest } from "./helpers/worker";
 
 const SECRET_TEXT = "I paid 345.67 to Maria Perez for rent";
 const SECRET_ANSWER = "Noted: 345.67 Bs to Maria Perez";
@@ -22,7 +22,18 @@ const RECEIPT = {
 	sender_name: "Oscar Sender",
 	status: "success",
 };
-const SENSITIVE = [SECRET_TEXT, "Maria Perez", SECRET_ANSWER, SECRET_TRANSCRIPT, "Farmatodo", "REF998877", "Jose Gonzalez", "V-12345678", "04141234567", "Oscar Sender"];
+const SENSITIVE = [
+	SECRET_TEXT,
+	"Maria Perez",
+	SECRET_ANSWER,
+	SECRET_TRANSCRIPT,
+	"Farmatodo",
+	"REF998877",
+	"Jose Gonzalez",
+	"V-12345678",
+	"04141234567",
+	"Oscar Sender",
+];
 
 let mock: FetchMock;
 let lines: string[];
@@ -32,7 +43,9 @@ beforeEach(() => {
 	lines = [];
 	for (const m of methods) {
 		vi.spyOn(console, m).mockImplementation((...args: unknown[]) => {
-			lines.push(args.map((a) => (typeof a === "string" ? a : a instanceof Error ? `${a.message} ${a.stack}` : JSON.stringify(a))).join(" "));
+			lines.push(
+				args.map((a) => (typeof a === "string" ? a : a instanceof Error ? `${a.message} ${a.stack}` : JSON.stringify(a))).join(" "),
+			);
 		});
 	}
 	mock = mockFetch();

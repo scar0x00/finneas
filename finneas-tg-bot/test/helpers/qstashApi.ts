@@ -1,4 +1,4 @@
-import { jsonResponse, type FetchMock, type RecordedCall } from "./fetchMock";
+import { type FetchMock, jsonResponse, type RecordedCall } from "./fetchMock";
 
 /** Accepts every publish. Use `publishCalls()` to inspect them. */
 export function mockQStashPublish(mock: FetchMock): FetchMock {

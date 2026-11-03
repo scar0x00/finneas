@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { SYSTEM } from "../SYSTEM_PROMPT";
-import { createOpenRouter, type ChatMessage } from "./openrouter";
+import { type ChatMessage, createOpenRouter } from "./openrouter";
 
 export const DEFAULT_MAX_CONTEXT_MESSAGES = 30;
 
@@ -60,7 +60,9 @@ export class AgentDO extends DurableObject<Env> {
 
 	private migrate(): void {
 		const sql = this.ctx.storage.sql;
-		sql.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+		sql.exec(
+			"CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+		);
 		let current = (sql.exec("SELECT MAX(version) AS v FROM schema_migrations").one().v as number | null) ?? 0;
 		// DOs created before migrations existed already have the v1 table.
 		if (current === 0 && sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'chat_messages'").toArray().length > 0) {
@@ -102,7 +104,10 @@ export class AgentDO extends DurableObject<Env> {
 		}
 
 		const recent = sql
-			.exec("SELECT role, content FROM chat_messages WHERE role IN ('user', 'assistant') ORDER BY id DESC LIMIT ?", this.maxContextMessages - 1)
+			.exec(
+				"SELECT role, content FROM chat_messages WHERE role IN ('user', 'assistant') ORDER BY id DESC LIMIT ?",
+				this.maxContextMessages - 1,
+			)
 			.toArray()
 			.reverse() as unknown as ChatMessage[];
 
@@ -132,7 +137,10 @@ export class AgentDO extends DurableObject<Env> {
 
 	/** Records that the answer for `updateId` reached the user, so a redelivery is not re-sent. */
 	async markReplied(updateId: number): Promise<void> {
-		this.ctx.storage.sql.exec("UPDATE chat_messages SET replied_at = CURRENT_TIMESTAMP WHERE update_id = ? AND role = 'assistant'", updateId);
+		this.ctx.storage.sql.exec(
+			"UPDATE chat_messages SET replied_at = CURRENT_TIMESTAMP WHERE update_id = ? AND role = 'assistant'",
+			updateId,
+		);
 	}
 
 	async clearChat(): Promise<void> {

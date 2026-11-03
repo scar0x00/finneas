@@ -1,6 +1,6 @@
 import { arrayBufferToBase64 } from "./arrayBufferToBase64";
 import { isRetryableStatus, RetryableError } from "./errors";
-import { log, since, type LogFields } from "./log";
+import { type LogFields, log, since } from "./log";
 
 /** The only place that knows OpenRouter's URL, headers and model ids. */
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -64,7 +64,12 @@ interface CompletionResult {
  * Throws `RetryableError` for 408/429/5xx, network errors and timeouts, and a
  * plain `Error` (with the status, never the body) for other non-2xx responses.
  */
-export async function openrouterPost<T>(path: string, body: unknown, apiKey: string, timeoutMs = OPENROUTER_TIMEOUT_MS): Promise<{ data: T; status: number }> {
+export async function openrouterPost<T>(
+	path: string,
+	body: unknown,
+	apiKey: string,
+	timeoutMs = OPENROUTER_TIMEOUT_MS,
+): Promise<{ data: T; status: number }> {
 	// A cleared timer instead of AbortSignal.timeout(): a pending timeout would keep
 	// the Durable Object busy long after the response arrived.
 	const controller = new AbortController();
@@ -84,7 +89,9 @@ export async function openrouterPost<T>(path: string, body: unknown, apiKey: str
 				signal: controller.signal,
 			});
 		} catch (err) {
-			throw new RetryableError(`OpenRouter request to ${path} failed: ${err instanceof Error ? err.name : "network error"}`, { cause: err });
+			throw new RetryableError(`OpenRouter request to ${path} failed: ${err instanceof Error ? err.name : "network error"}`, {
+				cause: err,
+			});
 		}
 		if (!response.ok) {
 			// Drain the body so the connection can be reused; never surface it.

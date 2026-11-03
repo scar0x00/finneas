@@ -19,7 +19,7 @@
 	"compatibility_date": "2026-09-07",
 	"observability": {
 		"enabled": true,
-		"head_sampling_rate": 1,
+		"head_sampling_rate": 1
 	},
 	"upload_source_maps": true,
 	"vars": {
@@ -56,7 +56,7 @@
 		"AgentDO": {
 			"type": "durable-object",
 			"storage": "sqlite"
-		},
+		}
 	},
 	"env": {
 		"staging": {

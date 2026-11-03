@@ -20,7 +20,10 @@ export interface SignOptions {
  * Signs `body` the way QStash does: an HS256 JWT with
  * `iss: "Upstash"`, `sub: <url>`, `body: base64url(sha256(body))`, `nbf`, `exp`.
  */
-export async function signQStash(body: string, { url, key = TEST_BINDINGS.QSTASH_CURRENT_SIGNING_KEY, claims = {} }: SignOptions): Promise<string> {
+export async function signQStash(
+	body: string,
+	{ url, key = TEST_BINDINGS.QSTASH_CURRENT_SIGNING_KEY, claims = {} }: SignOptions,
+): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
 	const bodyHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body));
 	const header = { alg: "HS256", typ: "JWT" };

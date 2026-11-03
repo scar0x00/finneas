@@ -1,4 +1,4 @@
-import { jsonResponse, type FetchMock } from "./fetchMock";
+import { type FetchMock, jsonResponse } from "./fetchMock";
 
 export const OPENROUTER_HOST = "openrouter.ai";
 export const CHAT_PATH = "/api/v1/chat/completions";

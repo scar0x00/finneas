@@ -1,6 +1,6 @@
 import type { Update } from "grammy/types";
-import { jsonResponse, type FetchMock, type RecordedCall } from "./fetchMock";
 import { TEST_BOT_ID } from "./bindings";
+import { type FetchMock, jsonResponse, type RecordedCall } from "./fetchMock";
 
 export const ALLOWED_USER_ID = 1001;
 export const STRANGER_USER_ID = 666;
@@ -33,7 +33,9 @@ export function textUpdate(text: string, opts: { chatId?: number; userId?: numbe
 	return { update_id: opts.updateId ?? newUpdateId(), message } as Update;
 }
 
-export function voiceUpdate(opts: { chatId?: number; userId?: number; updateId?: number; duration?: number; fileSize?: number } = {}): Update {
+export function voiceUpdate(
+	opts: { chatId?: number; userId?: number; updateId?: number; duration?: number; fileSize?: number } = {},
+): Update {
 	const userId = opts.userId ?? ALLOWED_USER_ID;
 	const chatId = opts.chatId ?? userId;
 	return {
@@ -124,14 +126,20 @@ export function mockTelegram(mock: FetchMock, opts: { fileBody?: Uint8Array } = 
 		const body = call.bodyText ? call.json() : {};
 		switch (method) {
 			case "getFile":
-				return jsonResponse({ ok: true, result: { file_id: body.file_id, file_unique_id: "u", file_size: 1234, file_path: `files/${body.file_id}.bin` } });
+				return jsonResponse({
+					ok: true,
+					result: { file_id: body.file_id, file_unique_id: "u", file_size: 1234, file_path: `files/${body.file_id}.bin` },
+				});
 			case "sendMessage":
 				return jsonResponse({
 					ok: true,
 					result: { message_id: sentId++, date: 0, chat: { id: body.chat_id, type: "private" }, text: body.text },
 				});
 			case "editMessageText":
-				return jsonResponse({ ok: true, result: { message_id: body.message_id, date: 0, chat: { id: body.chat_id, type: "private" }, text: body.text } });
+				return jsonResponse({
+					ok: true,
+					result: { message_id: body.message_id, date: 0, chat: { id: body.chat_id, type: "private" }, text: body.text },
+				});
 			default:
 				return jsonResponse({ ok: true, result: true });
 		}

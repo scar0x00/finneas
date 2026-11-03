@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { mockTelegram, sentTexts, telegramCalls, textUpdate } from "./helpers/telegram";
-import { mockQStashPublish, publishCalls } from "./helpers/qstashApi";
+import { ALLOWED_UPDATES, buildWebhookRequest, formatWebhookInfo, parseWebhookArgs } from "../scripts/webhook-lib";
+import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
 import { chatCalls, mockChat } from "./helpers/openrouter";
+import { mockQStashPublish, publishCalls } from "./helpers/qstashApi";
+import { mockTelegram, sentTexts, telegramCalls, textUpdate } from "./helpers/telegram";
 import { callWorker, webhookRequest } from "./helpers/worker";
-import { ALLOWED_UPDATES, buildWebhookRequest, parseWebhookArgs, formatWebhookInfo } from "../scripts/webhook-lib";
 
 let mock: FetchMock;
 beforeEach(() => {
@@ -53,8 +53,16 @@ describe("webhook script", () => {
 	const env = { FINNEAS_BOT_TOKEN: "123:abc", TELEGRAM_WEBHOOK_SECRET: "s3cret" };
 
 	it("parses subcommands and flags", () => {
-		expect(parseWebhookArgs(["set", "--url", "https://x.trycloudflare.com"])).toEqual({ command: "set", url: "https://x.trycloudflare.com", dropPending: false });
-		expect(parseWebhookArgs(["set", "--url=https://x", "--drop-pending-updates"])).toEqual({ command: "set", url: "https://x", dropPending: true });
+		expect(parseWebhookArgs(["set", "--url", "https://x.trycloudflare.com"])).toEqual({
+			command: "set",
+			url: "https://x.trycloudflare.com",
+			dropPending: false,
+		});
+		expect(parseWebhookArgs(["set", "--url=https://x", "--drop-pending-updates"])).toEqual({
+			command: "set",
+			url: "https://x",
+			dropPending: true,
+		});
 		expect(parseWebhookArgs(["info"])).toEqual({ command: "info", dropPending: false });
 		expect(parseWebhookArgs(["delete", "--drop-pending-updates"])).toEqual({ command: "delete", dropPending: true });
 	});
@@ -78,7 +86,9 @@ describe("webhook script", () => {
 	});
 
 	it("refuses to set a webhook without a secret or a token", () => {
-		expect(() => buildWebhookRequest({ command: "set", url: "https://x", dropPending: false }, { FINNEAS_BOT_TOKEN: "1:a" })).toThrow(/TELEGRAM_WEBHOOK_SECRET/);
+		expect(() => buildWebhookRequest({ command: "set", url: "https://x", dropPending: false }, { FINNEAS_BOT_TOKEN: "1:a" })).toThrow(
+			/TELEGRAM_WEBHOOK_SECRET/,
+		);
 		expect(() => buildWebhookRequest({ command: "info", dropPending: false }, {})).toThrow(/FINNEAS_BOT_TOKEN/);
 	});
 
@@ -87,7 +97,10 @@ describe("webhook script", () => {
 	});
 
 	it("builds getWebhookInfo and deleteWebhook", () => {
-		expect(buildWebhookRequest({ command: "info", dropPending: false }, env)).toEqual({ url: "https://api.telegram.org/bot123:abc/getWebhookInfo", body: {} });
+		expect(buildWebhookRequest({ command: "info", dropPending: false }, env)).toEqual({
+			url: "https://api.telegram.org/bot123:abc/getWebhookInfo",
+			body: {},
+		});
 		expect(buildWebhookRequest({ command: "delete", dropPending: true }, env)).toEqual({
 			url: "https://api.telegram.org/bot123:abc/deleteWebhook",
 			body: { drop_pending_updates: true },

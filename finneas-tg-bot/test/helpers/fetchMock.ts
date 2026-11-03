@@ -1,4 +1,4 @@
-import { vi, type MockInstance } from "vitest";
+import { type MockInstance, vi } from "vitest";
 
 /** A recorded outbound request. The body is read eagerly so tests can inspect it. */
 export interface RecordedCall {

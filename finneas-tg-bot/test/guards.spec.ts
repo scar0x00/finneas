@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mockFetch, type FetchMock } from "./helpers/fetchMock";
-import { mockTelegram, sentTexts, telegramCalls, voiceUpdate } from "./helpers/telegram";
+import { type FetchMock, mockFetch } from "./helpers/fetchMock";
 import { mockChat, mockTranscription, OPENROUTER_HOST } from "./helpers/openrouter";
+import { mockTelegram, sentTexts, telegramCalls, voiceUpdate } from "./helpers/telegram";
 import { callWorker, processRequest } from "./helpers/worker";
 
 let mock: FetchMock;

@@ -42,12 +42,19 @@ export async function telegramWebhook(request: Request, env: Env, ctx: Execution
 	}
 
 	// Typing indicator is best effort and off the critical path.
-	const typing = () => ctx.waitUntil(newBot(env).api.sendChatAction(update.message!.chat.id, "typing").catch(() => {}));
+	const typing = () =>
+		ctx.waitUntil(
+			newBot(env)
+				.api.sendChatAction(update.message!.chat.id, "typing")
+				.catch(() => {}),
+		);
 
 	if (env.DIRECT_PROCESSING === "true") {
 		// Local dev: same processing as /process, without QStash. Errors are only logged.
 		typing();
-		ctx.waitUntil(processUpdate(update, env).catch((err) => logError("process.failed", err, { update_id: update.update_id, direct: true })));
+		ctx.waitUntil(
+			processUpdate(update, env).catch((err) => logError("process.failed", err, { update_id: update.update_id, direct: true })),
+		);
 		return new Response("OK");
 	}
 

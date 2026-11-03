@@ -1,7 +1,7 @@
 import { z } from "zod";
+import type { LogFields } from "./log";
 import type { OpenRouter } from "./openrouter";
 import { escapeHtml } from "./telegram";
-import type { LogFields } from "./log";
 
 /**
  * What the vision model returns: everything as printed on the receipt, as strings.
@@ -33,7 +33,10 @@ export const ReceiptSchema = z.object({
 	currency: z.string().length(3).nullable(),
 	transaction_id: z.string().nullable(),
 	/** YYYY-MM-DD */
-	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+	date: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.nullable(),
 	time: z.string().nullable(),
 	sender_name: z.string().nullable(),
 	recipient_name: z.string().nullable(),
@@ -118,7 +121,9 @@ export function normaliseReceipt(r: ModelReceipt): Receipt {
 	});
 }
 
-export type ExtractResult = { ok: true; receipt: Receipt } | { ok: false; reason: "empty" | "invalid_json" | "invalid_schema"; issues?: string[] };
+export type ExtractResult =
+	| { ok: true; receipt: Receipt }
+	| { ok: false; reason: "empty" | "invalid_json" | "invalid_schema"; issues?: string[] };
 
 const PROMPT = `You are a financial receipt parser. Extract the bank transaction shown in this image.
 Most receipts are from Venezuelan banks. If the image shows only one person's name, it is most likely the recipient, not the sender.

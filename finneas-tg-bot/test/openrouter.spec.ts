@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:workers";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { chatCompletion, CHAT_PATH, OPENROUTER_HOST, STT_PATH } from "./helpers/openrouter";
-import { createOpenRouter } from "../src/lib/openrouter";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isRetryable } from "../src/lib/errors";
+import { createOpenRouter } from "../src/lib/openrouter";
+import { type FetchMock, jsonResponse, mockFetch } from "./helpers/fetchMock";
+import { CHAT_PATH, chatCompletion, OPENROUTER_HOST, STT_PATH } from "./helpers/openrouter";
 
 let mock: FetchMock;
 beforeEach(() => {
@@ -17,7 +17,12 @@ describe("OpenRouter client", () => {
 	it("chat() uses CHAT_MODEL and returns content, usage and finish reason", async () => {
 		mock.on(OPENROUTER_HOST, CHAT_PATH, () => jsonResponse(chatCompletion("hi", { model: "served/model" })));
 		const res = await client().chat({ messages: [{ role: "user", content: "hello" }] });
-		expect(res).toMatchObject({ content: "hi", finishReason: "stop", model: "served/model", usage: { prompt_tokens: 10, completion_tokens: 5 } });
+		expect(res).toMatchObject({
+			content: "hi",
+			finishReason: "stop",
+			model: "served/model",
+			usage: { prompt_tokens: 10, completion_tokens: 5 },
+		});
 		const body = mock.calls[0].json();
 		expect(body.model).toBe("test/chat-model");
 		expect(body.messages).toEqual([{ role: "user", content: "hello" }]);
