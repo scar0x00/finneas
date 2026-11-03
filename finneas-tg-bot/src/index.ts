@@ -30,6 +30,8 @@ export interface Env {
 	CHAT_MODEL?: string;
 	/** How many stored messages (plus the system prompt) are sent to the model. */
 	MAX_CONTEXT_MESSAGES?: string;
+	/** Local dev only: "true" processes updates inline in POST / instead of going through QStash. */
+	DIRECT_PROCESSING?: string;
 }
 
 const FRIENDLY_ERROR = "Sorry, something went wrong on my side. Please try again in a moment.";
@@ -102,6 +104,21 @@ async function telegramWebhook(request: Request, env: Env, ctx: ExecutionContext
 		return new Response("OK", { status: 200 });
 	}
 
+	// Typing indicator is best effort and off the critical path.
+	const typing = () =>
+		ctx.waitUntil(
+			newBot(env)
+				.api.sendChatAction(update.message!.chat.id, "typing")
+				.catch(() => {}),
+		);
+
+	if (env.DIRECT_PROCESSING === "true") {
+		// Local dev: same processing as /process, without QStash. Errors are only logged.
+		typing();
+		ctx.waitUntil(processUpdate(update, env).catch((err) => logError("process.failed", err, { update_id: update.update_id, direct: true })));
+		return new Response("OK", { status: 200 });
+	}
+
 	try {
 		const client = new Client({ token: env.QSTASH_TOKEN, ...(env.QSTASH_URL ? { baseUrl: env.QSTASH_URL } : {}) });
 		await client.publishJSON({
@@ -117,14 +134,7 @@ async function telegramWebhook(request: Request, env: Env, ctx: ExecutionContext
 		return new Response("Error", { status: 500 });
 	}
 
-	// Typing indicator is best effort and off the critical path.
-	const chatId = update.message!.chat.id;
-	ctx.waitUntil(
-		newBot(env)
-			.api.sendChatAction(chatId, "typing")
-			.catch(() => {}),
-	);
-
+	typing();
 	return new Response("OK", { status: 200 });
 }
 

@@ -17,3 +17,9 @@ QSTASH_NEXT_SIGNING_KEY=
 
 # OpenRouter. Use a key with a low credit limit for development.
 OPENROUTER_API_KEY=
+
+# Local only: process updates inline in POST / instead of through QStash.
+DIRECT_PROCESSING=true
+# Optional: point the QStash client at the local dev server (`pnpx @upstash/qstash-cli dev`)
+# when you work on the QStash path. Set DIRECT_PROCESSING=false then.
+# QSTASH_URL=http://127.0.0.1:8080
