@@ -11,13 +11,16 @@ const SECRET_ANSWER = "Noted: 345.67 Bs to Maria Perez";
 const SECRET_TRANSCRIPT = "Spent eighty dollars at Farmatodo";
 const RECEIPT = {
 	receiving_bank: "Banesco",
-	amount: 1234.56,
+	amount: "Bs. 1.234,56",
 	currency: "VES",
 	transaction_id: "REF998877",
+	date: "2026-10-30",
+	time: null,
 	recipient_name: "Jose Gonzalez",
 	recipient_id: "V-12345678",
 	recipient_phone: "04141234567",
 	sender_name: "Oscar Sender",
+	status: "success",
 };
 const SENSITIVE = [SECRET_TEXT, "Maria Perez", SECRET_ANSWER, SECRET_TRANSCRIPT, "Farmatodo", "REF998877", "Jose Gonzalez", "V-12345678", "04141234567", "Oscar Sender"];
 

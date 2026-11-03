@@ -29,6 +29,10 @@
 		// QStash API region (the account's token is region-specific).
 		"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
 		"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+		"VISION_MODEL": "deepseek/deepseek-v4.1-flash",
+		"STT_MODEL": "openai/whisper-large-v3-turbo",
+		// Overridden at deploy time with the git SHA (--var VERSION:<sha>).
+		"VERSION": "dev",
 		// System prompt + this many most recent stored messages are sent to the model.
 		"MAX_CONTEXT_MESSAGES": "30"
 	},
@@ -62,6 +66,10 @@
 				"ALLOWED_USER_IDS": "",
 				"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
 				"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+				"VISION_MODEL": "deepseek/deepseek-v4.1-flash",
+				"STT_MODEL": "openai/whisper-large-v3-turbo",
+				// Overridden at deploy time with the git SHA (--var VERSION:<sha>).
+				"VERSION": "dev",
 				"MAX_CONTEXT_MESSAGES": "30"
 			},
 			"ratelimits": [
@@ -84,6 +92,10 @@
 				"ALLOWED_USER_IDS": "",
 				"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
 				"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+				"VISION_MODEL": "deepseek/deepseek-v4.1-flash",
+				"STT_MODEL": "openai/whisper-large-v3-turbo",
+				// Overridden at deploy time with the git SHA (--var VERSION:<sha>).
+				"VERSION": "dev",
 				"MAX_CONTEXT_MESSAGES": "30"
 			},
 			"ratelimits": [

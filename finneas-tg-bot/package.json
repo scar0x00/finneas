@@ -12,7 +12,7 @@
 		"build": "wrangler deploy --dry-run --outdir dist && wrangler deploy --dry-run --env staging --outdir dist/staging && wrangler deploy --dry-run --env production --outdir dist/production",
 		"deploy:staging": "wrangler deploy --env staging",
 		"deploy:production": "wrangler deploy --env production",
-		"cf-typegen": "wrangler types --strict-vars=false",
+		"cf-typegen": "wrangler types --strict-vars=false --env-file .dev.vars.example",
 		"webhook:set": "node --env-file=.dev.vars scripts/webhook.ts set",
 		"webhook:info": "node --env-file=.dev.vars scripts/webhook.ts info",
 		"webhook:delete": "node --env-file=.dev.vars scripts/webhook.ts delete"
@@ -26,7 +26,9 @@
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.30.0",
 		"@upstash/qstash": "^2.11.3",
-		"grammy": "^1.46.0"
+		"grammy": "^1.46.0",
+		"hono": "^4.13.8",
+		"zod": "^4.4.3"
 	},
 	"type": "module"
 }

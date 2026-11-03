@@ -78,6 +78,27 @@ storage or limits.
 - Durable Object tests use unique names per test (`getByName`) and
   `runInDurableObject` to read SQLite directly.
 
+## Code map (finneas-tg-bot/src)
+
+| Path | What |
+|---|---|
+| `index.ts` | Hono app: `POST /`, `POST /process`, `GET /health`; exports `AgentDO` |
+| `routes/webhook.ts` | Telegram webhook: secret, allowlist, rate limit, QStash publish / inline processing |
+| `routes/process.ts` | QStash consumer: signature check → `processUpdate()` |
+| `bot/processUpdate.ts` | Builds the bot per update, error boundary + retry policy, `handlerKind` |
+| `bot/createBot.ts` | Registers handlers (commands before text) |
+| `bot/handlers/{commands,text,voice,photo}.ts` | One handler each; receive `env` |
+| `bot/replyWithAgent.ts` | Shared text/voice → `AgentDO.chat()` → reply |
+| `bot/files.ts` | Telegram file download with the 20 MB guard |
+| `lib/openrouter.ts` | **Only** OpenRouter client: `chat`, `vision` (strict `json_schema`), `transcribe`; models from `CHAT_MODEL`/`VISION_MODEL`/`STT_MODEL` |
+| `lib/receipt.ts` | Zod `ModelReceiptSchema` (raw strings from the model) → `normaliseReceipt` (amount/currency/date parsing in code) → `ReceiptSchema`; `extractReceipt` never throws on bad model output |
+| `lib/AgentDO.ts` | Per-chat Durable Object |
+| `lib/{errors,log,security,telegram}.ts` | Retry classification, structured logs, auth, Telegram output helpers |
+
+`Env` is the generated global from `worker-configuration.d.ts` (no hand-written interface).
+`pnpm cf-typegen` reads `.dev.vars.example` so secrets are typed: add every new secret
+there. `tsconfig.json` has no Node types (no `nodejs_compat`); `scripts/` has its own.
+
 ## Security model (finneas-tg-bot)
 
 - `POST /` requires `X-Telegram-Bot-Api-Secret-Token` == `TELEGRAM_WEBHOOK_SECRET`
@@ -107,7 +128,7 @@ Telegram → `POST /` → QStash publish (`deduplicationId = update_id`) → `PO
     sent yet, `/process` returns 200 (no retry, no duplicate reply).
   - Errors lose their class across DO RPC, so `RetryableError` also carries a
     `[retryable] ` message prefix; always test with `isRetryable(err)`.
-- All OpenRouter calls go through `openrouterPost()` (`src/lib/openrouterFetch.ts`):
+- All OpenRouter calls go through `openrouterPost()` in `src/lib/openrouter.ts`:
   shared headers, 25 s timeout (cleared timer, not `AbortSignal.timeout`, which kept DOs
   busy and hung `evictDurableObject` in tests), status checks, no response bodies in errors.
 - Replies go through `sendLongMessage()` (splits at 4096 chars). Model-provided values in
@@ -154,5 +175,9 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   migrations. Conversation summaries (optional in the issue) are not implemented.
 - [x] #17 staging/production envs, deploy workflow, `/health`. Needs Oscar: Cloudflare
   token + account id secrets, GitHub environments, staging bot + secrets, custom domains (#2).
+- [x] #18 refactor: Hono + split handlers, single OpenRouter client, Zod receipt schema,
+  generated `Env`, 20 MB / 120 s input guards, dead code removed. **Unverified**: that
+  `VISION_MODEL` (`deepseek/deepseek-v4.1-flash`) supports image input + structured outputs
+  on OpenRouter (no network from the dev container). Swap the var if it doesn't.
 - [x] #16 local dev: `.dev.vars.example`, tunnel, `DIRECT_PROCESSING`, webhook scripts, README
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.

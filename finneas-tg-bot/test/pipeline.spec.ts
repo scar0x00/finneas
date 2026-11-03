@@ -151,7 +151,19 @@ describe("Telegram output", () => {
 	});
 
 	it("renders a receipt whose recipient name contains _ * and backticks with HTML parse mode", async () => {
-		const receipt = { amount: 25, currency: "USD", recipient_name: "Ana_Maria *Lopez* `x` <b>", transaction_id: "REF_1" };
+		const receipt = {
+			receiving_bank: null,
+			amount: "25.00",
+			currency: "USD",
+			transaction_id: "REF_1",
+			date: null,
+			time: null,
+			sender_name: null,
+			recipient_name: "Ana_Maria *Lopez* `x` <b>",
+			recipient_id: null,
+			recipient_phone: null,
+			status: null,
+		};
 		mock.on(OPENROUTER_HOST, CHAT_PATH, () => jsonResponse(chatCompletion(JSON.stringify(receipt))));
 		const res = await callWorker(await processRequest(photoUpdate()));
 		expect(res.status).toBe(200);

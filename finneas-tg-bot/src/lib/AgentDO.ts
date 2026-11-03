@@ -1,10 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-import type { Env } from "../index";
-import type { ChatMessage } from "../types/Chat";
 import { SYSTEM } from "../SYSTEM_PROMPT";
-import { runOpenrouterModel } from "./runOpenrouterModel";
+import { createOpenRouter, type ChatMessage } from "./openrouter";
 
-export const DEFAULT_CHAT_MODEL = "google/gemini-3.1-flash-lite";
 export const DEFAULT_MAX_CONTEXT_MESSAGES = 30;
 
 export interface ChatInput {
@@ -78,10 +75,6 @@ export class AgentDO extends DurableObject<Env> {
 		}
 	}
 
-	private get chatModel(): string {
-		return this.env.CHAT_MODEL || DEFAULT_CHAT_MODEL;
-	}
-
 	private get maxContextMessages(): number {
 		const n = Number(this.env.MAX_CONTEXT_MESSAGES);
 		return Number.isInteger(n) && n > 0 ? n : DEFAULT_MAX_CONTEXT_MESSAGES;
@@ -115,19 +108,18 @@ export class AgentDO extends DurableObject<Env> {
 
 		const messages: ChatMessage[] = [{ role: "system", content: SYSTEM }, ...recent, { role: "user", content: text }];
 
-		const response = await runOpenrouterModel({
-			OPENROUTER_API_KEY: this.env.OPENROUTER_API_KEY,
+		const response = await createOpenRouter(this.env).chat({
 			messages,
-			model: this.chatModel,
 			logFields: { chat_id: Number(this.ctx.id.name), update_id: updateId, context_messages: messages.length },
 		});
+		const answer = response.content ?? "";
 
 		// Both rows are written together, and only after the model succeeded.
 		this.ctx.storage.transactionSync(() => {
 			sql.exec("INSERT INTO chat_messages (role, content, update_id, source) VALUES ('user', ?, ?, ?)", text, updateId, source);
 			sql.exec(
 				"INSERT INTO chat_messages (role, content, update_id, model, prompt_tokens, completion_tokens) VALUES ('assistant', ?, ?, ?, ?, ?)",
-				response.answer,
+				answer,
 				updateId,
 				response.model ?? null,
 				response.usage?.prompt_tokens ?? null,
@@ -135,7 +127,7 @@ export class AgentDO extends DurableObject<Env> {
 			);
 		});
 
-		return { answer: response.answer, duplicate: false };
+		return { answer, duplicate: false };
 	}
 
 	/** Records that the answer for `updateId` reached the user, so a redelivery is not re-sent. */

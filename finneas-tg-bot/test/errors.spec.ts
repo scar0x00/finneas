@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isRetryable, isRetryableStatus, RetryableError } from "../src/lib/errors";
-import { openrouterPost } from "../src/lib/openrouterFetch";
+import { openrouterPost } from "../src/lib/openrouter";
 import { jsonResponse, mockFetch } from "./helpers/fetchMock";
 
 afterEach(() => vi.restoreAllMocks());

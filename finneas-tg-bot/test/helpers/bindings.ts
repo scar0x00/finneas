@@ -25,5 +25,7 @@ export const TEST_BINDINGS = {
 	TELEGRAM_WEBHOOK_SECRET: "test_webhook_secret-0123456789",
 	ALLOWED_USER_IDS: "1001, 1002",
 	CHAT_MODEL: "test/chat-model",
+	VISION_MODEL: "test/vision-model",
+	STT_MODEL: "test/stt-model",
 	MAX_CONTEXT_MESSAGES: "30",
 } as const;

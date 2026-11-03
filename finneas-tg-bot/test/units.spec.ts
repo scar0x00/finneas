@@ -20,33 +20,7 @@ describe("arrayBufferToBase64", () => {
 	});
 });
 
-import { extractTransactionInfo } from "../src/lib/extractTransactionInfo";
-import { afterEach as after, beforeEach as before } from "vitest";
-import { mockFetch, jsonResponse, type FetchMock } from "./helpers/fetchMock";
-import { chatCompletion, CHAT_PATH, OPENROUTER_HOST } from "./helpers/openrouter";
-import { env } from "cloudflare:workers";
-
-describe("receipt JSON extraction", () => {
-	let mock: FetchMock;
-	before(() => {
-		mock = mockFetch();
-	});
-	after(() => mock.restore());
-
-	const receipt = { amount: 25, currency: "USD", recipient_name: "Ana" };
-	const cases: [string, string][] = [
-		["plain JSON", JSON.stringify(receipt)],
-		["a ```json fence", "```json\n" + JSON.stringify(receipt) + "\n```"],
-		["a <think> block followed by a fence", "<think>let me look</think>\n```json\n" + JSON.stringify(receipt) + "\n```"],
-	];
-	for (const [name, content] of cases) {
-		it(`parses ${name}`, async () => {
-			mock.on(OPENROUTER_HOST, CHAT_PATH, () => jsonResponse(chatCompletion(content)));
-			const result = await extractTransactionInfo({ image: "data:image/jpeg;base64,AAAA", env: env as any });
-			expect(result).toMatchObject(receipt);
-		});
-	}
-});
+import { mockFetch } from "./helpers/fetchMock";
 
 describe("fetch mock", () => {
 	it("throws on any unmocked host", async () => {
