@@ -32,7 +32,11 @@ export interface Env {
 	MAX_CONTEXT_MESSAGES?: string;
 	/** Local dev only: "true" processes updates inline in POST / instead of going through QStash. */
 	DIRECT_PROCESSING?: string;
+	/** Git SHA injected at deploy time (`--var VERSION:<sha>`). */
+	VERSION?: string;
 }
+
+const version = (env: Env) => env.VERSION || "dev";
 
 const FRIENDLY_ERROR = "Sorry, something went wrong on my side. Please try again in a moment.";
 
@@ -257,7 +261,7 @@ async function answerWithAgent(ctx: Context, env: Env, text: string, source: "te
 
 function registerHandlers(bot: Bot, env: Env): void {
 	bot.command("version", async (ctx) => {
-		await ctx.reply("v0.2.41");
+		await ctx.reply(version(env));
 	});
 
 	bot.command("login", async (ctx) => {
@@ -328,6 +332,9 @@ export default {
 		}
 		if (request.method === "POST" && url.pathname === "/process") {
 			return processRoute(request, env, url.origin);
+		}
+		if (request.method === "GET" && url.pathname === "/health") {
+			return Response.json({ status: "ok", version: version(env) });
 		}
 		return new Response("Not Found", { status: 404 });
 	},

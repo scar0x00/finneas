@@ -1,10 +1,20 @@
 /**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
+ * Wrangler config for the bot. https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * Three environments:
+ * - top level: local development (`wrangler dev`). Its name deliberately differs from
+ *   production so a bare `wrangler deploy` can never overwrite the production Worker.
+ * - env.staging: `finneas-tg-bot-staging`, deployed from `main` by CI, staging bot.
+ * - env.production: keeps the Worker name `register-bot` so the existing Durable Object
+ *   namespace (chat history) and webhook URL stay the same. Deployed only through the
+ *   approved `production` GitHub environment.
+ *
+ * `vars`, `durable_objects` and `ratelimits` are NOT inherited by environments; keep the
+ * three copies in sync. `pnpm build` dry-runs every environment.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "register-bot",
+	"name": "finneas-tg-bot-dev",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-09-07",
 	"observability": {
@@ -30,21 +40,6 @@
 			"simple": { "limit": 20, "period": 60 }
 		}
 	],
-	// "queues": {
-	// 	"producers": [
-	// 		{
-	// 			"binding": "TG_UPDATES",
-	// 			"queue": "finneas-tg-updates",
-	// 		}
-	// 	],
-	// 	"consumers": [
-	// 		{
-	// 			"queue": "finneas-tg-updates",
-	// 			"max_batch_size": 10,
-	// 			"max_batch_timeout": 0
-	// 		}
-	// 	]
-	// },
 	"durable_objects": {
 		"bindings": [
 			{
@@ -58,5 +53,51 @@
 			"type": "durable-object",
 			"storage": "sqlite"
 		},
+	},
+	"env": {
+		"staging": {
+			"name": "finneas-tg-bot-staging",
+			"vars": {
+				// The staging bot's testers.
+				"ALLOWED_USER_IDS": "",
+				"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
+				"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+				"MAX_CONTEXT_MESSAGES": "30"
+			},
+			"ratelimits": [
+				{
+					"name": "USER_RATE_LIMIT",
+					"namespace_id": "1002",
+					"simple": { "limit": 20, "period": 60 }
+				}
+			],
+			"durable_objects": {
+				"bindings": [{ "name": "AGENT_DO", "class_name": "AgentDO" }]
+			}
+			// Once finneas.dev is on Cloudflare (#2):
+			// "routes": [{ "pattern": "tghooks-staging.finneas.dev", "custom_domain": true }]
+		},
+		"production": {
+			"name": "register-bot",
+			"vars": {
+				// Set to your Telegram user id(s) before the first deploy, or nobody can use the bot.
+				"ALLOWED_USER_IDS": "",
+				"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
+				"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+				"MAX_CONTEXT_MESSAGES": "30"
+			},
+			"ratelimits": [
+				{
+					"name": "USER_RATE_LIMIT",
+					"namespace_id": "1001",
+					"simple": { "limit": 20, "period": 60 }
+				}
+			],
+			"durable_objects": {
+				"bindings": [{ "name": "AGENT_DO", "class_name": "AgentDO" }]
+			}
+			// Once finneas.dev is on Cloudflare (#2):
+			// "routes": [{ "pattern": "tghooks.finneas.dev", "custom_domain": true }]
+		}
 	}
 }

@@ -31,6 +31,8 @@ In `finneas-tg-bot/`:
 | `pnpm test` | Vitest, single pass (`pnpm test:watch` for watch mode) |
 | `pnpm typecheck` | `tsc` over `src` and `test` |
 | `pnpm cf-typegen` | Regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |
+| `pnpm build` | `wrangler deploy --dry-run` for the top level, staging and production |
+| `pnpm deploy:staging` / `deploy:production` | Emergency manual deploys; normally CI deploys (see `docs/deploy.md`) |
 | `pnpm dev` / `pnpm dev:tunnel` | `wrangler dev` / `cloudflared` quick tunnel to :8787 |
 | `pnpm webhook:set --url <https>` / `webhook:info` / `webhook:delete` | Telegram webhook via `scripts/webhook.ts` (Node 22.18+ type stripping, reads `.dev.vars`) |
 
@@ -38,6 +40,16 @@ Local dev: see the root `README.md`. Use a separate dev bot. `DIRECT_PROCESSING=
 (in `.dev.vars` only) makes `POST /` run `processUpdate()` inline via `ctx.waitUntil`
 instead of publishing to QStash. `scripts/webhook-lib.ts` holds the testable logic;
 `scripts/` has its own tsconfig (Node types).
+
+## Environments and deploys
+
+See `docs/deploy.md`. Top level of `finneas-tg-bot/wrangler.jsonc` = local dev
+(Worker `finneas-tg-bot-dev`, never deployed); `env.staging` = `finneas-tg-bot-staging`;
+`env.production` = `register-bot` (do not rename: that would orphan the DO namespace with
+chat history). `vars`, `durable_objects`, `ratelimits` are repeated per env; change all
+three. There is no plain `deploy` script on purpose. `.github/workflows/deploy.yml` deploys
+staging after green CI on `main` and production only via the approved `production` env.
+`GET /health` and `/version` report `VERSION` (git SHA).
 
 ## Cloudflare Workers: fetch current docs first
 
@@ -135,5 +147,7 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
 - [x] #14 idempotent pipeline
 - [x] #15 AgentDO: one `chat()` RPC, live system prompt, bounded context, per-chat queue,
   migrations. Conversation summaries (optional in the issue) are not implemented.
+- [x] #17 staging/production envs, deploy workflow, `/health`. Needs Oscar: Cloudflare
+  token + account id secrets, GitHub environments, staging bot + secrets, custom domains (#2).
 - [x] #16 local dev: `.dev.vars.example`, tunnel, `DIRECT_PROCESSING`, webhook scripts, README
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.
