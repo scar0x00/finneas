@@ -15,7 +15,9 @@
 	"vars": {
 		// Comma-separated Telegram user ids allowed to use the bot. Empty = nobody.
 		// Find your id by messaging @userinfobot. Not a secret.
-		"ALLOWED_USER_IDS": ""
+		"ALLOWED_USER_IDS": "",
+		// QStash API region (the account's token is region-specific).
+		"QSTASH_URL": "https://qstash-us-east-1.upstash.io"
 	},
 	// Per-user limit: 20 messages per 60 s (see src/index.ts).
 	"ratelimits": [

@@ -1,5 +1,6 @@
 import type { Env } from "../index";
 import { log, since, type LogFields } from "./log";
+import { openrouterPost } from "./openrouterFetch";
 
 type extractTransactionInfoParams = {
     image: ArrayBuffer | string;
@@ -80,29 +81,17 @@ export async function extractTransactionInfo({
 
     // 2. Invoke the OpenRouter API
     const start = Date.now();
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json",
-            // Optional but recommended by OpenRouter for ranking/metrics:
-            "HTTP-Referer": "https://finneas.dev",
-            "X-Title": "Finneas"
-        },
-        body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-        log("model.call", { ...logFields, kind: "vision", model: requestBody.model, status: response.status, duration_ms: since(start) });
-        throw new Error(`OpenRouter API request failed with status ${response.status}`);
+    let data: any;
+    try {
+        ({ data } = await openrouterPost<any>("/chat/completions", requestBody, env.OPENROUTER_API_KEY));
+    } catch (err) {
+        log("model.call", { ...logFields, kind: "vision", model: requestBody.model, ok: false, duration_ms: since(start) });
+        throw err;
     }
-
-    const data = await response.json() as any;
     log("model.call", {
         ...logFields,
         kind: "vision",
         model: data?.model ?? requestBody.model,
-        status: response.status,
         duration_ms: since(start),
         image_bytes: dataUrl.length,
         prompt_tokens: data?.usage?.prompt_tokens,
@@ -110,11 +99,8 @@ export async function extractTransactionInfo({
     });
 
     // 3. Extract the text response
-    const aiText = data.choices?.[0]?.message?.content || "";
-
-    if (!aiText) {
-        throw new Error("The AI returned an empty response.");
-    }
+    const aiText: string = data?.choices?.[0]?.message?.content || "";
+    if (!aiText) return null;
 
     try {
         let cleanedText = aiText;
@@ -132,9 +118,10 @@ export async function extractTransactionInfo({
                 .replace(/\s*```$/i, "")
                 .trim();
         }
-        
-        return JSON.parse(cleanedText);
-    } catch (error) {
-        throw new Error("The AI did not return a valid JSON object.");
+
+        const parsed = JSON.parse(cleanedText);
+        return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+        return null;
     }
 }

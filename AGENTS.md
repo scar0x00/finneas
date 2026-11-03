@@ -67,6 +67,29 @@ storage or limits.
   verification error is 401, never 500.
 - Never send `err.message` or other internals to the chat.
 
+## Request pipeline and retry policy (finneas-tg-bot)
+
+Telegram → `POST /` → QStash publish (`deduplicationId = update_id`) → `POST /process`
+→ grammY handlers → `AgentDO` / OpenRouter → reply.
+
+- `POST /` answers 200 for everything except a bad secret (401) or a failed QStash
+  publish (500, so Telegram redelivers; the dedupe id makes that safe). Unsupported
+  update types and malformed JSON are acknowledged and dropped. The typing action runs
+  in `ctx.waitUntil` after the publish and never blocks it.
+- `/process` → `processUpdate()`: an error boundary middleware tracks whether anything
+  was sent to the user (`SENDING_METHODS`, via an API transformer).
+  - `RetryableError` (OpenRouter 408/429/5xx, timeouts, network; Bot API 429/5xx) before
+    any reply → `/process` returns 503 → QStash retries.
+  - Anything else, or anything after a reply → logged, one friendly message if nothing was
+    sent yet, `/process` returns 200 (no retry, no duplicate reply).
+  - Errors lose their class across DO RPC, so `RetryableError` also carries a
+    `[retryable] ` message prefix; always test with `isRetryable(err)`.
+- All OpenRouter calls go through `openrouterPost()` (`src/lib/openrouterFetch.ts`):
+  shared headers, 25 s timeout (cleared timer, not `AbortSignal.timeout`, which kept DOs
+  busy and hung `evictDurableObject` in tests), status checks, no response bodies in errors.
+- Replies go through `sendLongMessage()` (splits at 4096 chars). Model-provided values in
+  formatted messages use HTML parse mode with `escapeHtml()`; never legacy Markdown.
+
 ## Logging
 
 - Use `log` / `logWarn` / `logError` from `finneas-tg-bot/src/lib/log.ts` (one JSON line
@@ -87,4 +110,5 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   `wrangler secret put TELEGRAM_WEBHOOK_SECRET`, set `ALLOWED_USER_IDS`, and re-register
   the webhook with `secret_token` (see #16 scripts).
 - [x] #11 structured JSON logs, no personal data
+- [x] #14 idempotent pipeline (DO-level `update_id` dedupe lands with #15)
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.
