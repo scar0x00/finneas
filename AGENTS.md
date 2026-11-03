@@ -18,7 +18,11 @@ package as its own workspace, with a different pnpm version and lockfile.
 
 ## Commands
 
-Root: `pnpm test` (all packages), `pnpm typecheck`.
+Root: `pnpm test` (all packages), `pnpm typecheck`, `pnpm build`.
+
+CI (`.github/workflows/ci.yml`) runs on every PR and on `main`: frozen install,
+`pnpm -r typecheck`, `pnpm -r test`, `pnpm -r build` (`wrangler deploy --dry-run`).
+It has no secrets; keep tests offline. Run those same commands before pushing.
 
 In `finneas-tg-bot/`:
 
@@ -83,3 +87,4 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   `wrangler secret put TELEGRAM_WEBHOOK_SECRET`, set `ALLOWED_USER_IDS`, and re-register
   the webhook with `secret_token` (see #16 scripts).
 - [x] #11 structured JSON logs, no personal data
+- [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.
