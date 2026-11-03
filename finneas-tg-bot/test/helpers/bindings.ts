@@ -22,4 +22,6 @@ export const TEST_BINDINGS = {
 	QSTASH_CURRENT_SIGNING_KEY: "sig_test_current_key",
 	QSTASH_NEXT_SIGNING_KEY: "sig_test_next_key",
 	OPENROUTER_API_KEY: "test-openrouter-key",
+	TELEGRAM_WEBHOOK_SECRET: "test_webhook_secret-0123456789",
+	ALLOWED_USER_IDS: "1001, 1002",
 } as const;

@@ -1,6 +1,7 @@
 import { Update } from "grammy/types";
 import { Bot, Context } from "grammy";
 import { Client, Receiver } from "@upstash/qstash";
+import { hasValidTelegramSecret, isAllowedSender, senderId } from "./lib/security";
 import { arrayBufferToBase64 } from "./lib/arrayBufferToBase64";
 import { extractTransactionInfo } from "./lib/extractTransactionInfo";
 import { AgentDO } from "./lib/AgentDO";
@@ -15,6 +16,11 @@ export interface Env {
     QSTASH_CURRENT_SIGNING_KEY: string;
     QSTASH_NEXT_SIGNING_KEY: string;
     AGENT_DO: DurableObjectNamespace<AgentDO>;
+    /** Telegram webhook `secret_token`; requests without it are rejected. */
+    TELEGRAM_WEBHOOK_SECRET: string;
+    /** Comma-separated Telegram user ids allowed to use the bot. Empty = nobody. */
+    ALLOWED_USER_IDS: string;
+    USER_RATE_LIMIT: RateLimit;
 }
 
 export default {
@@ -30,9 +36,24 @@ export default {
         // ROUTE 1: Receive Webhook from Telegram (/)
         // ==========================================
         if (request.method === "POST" && url.pathname === "/") {
+            if (!(await hasValidTelegramSecret(request, env.TELEGRAM_WEBHOOK_SECRET))) {
+                return new Response("Unauthorized", { status: 401 });
+            }
             try {
                 const textBody = await request.text(); // Read as text first
                 const update = JSON.parse(textBody) as Update;
+
+                // Unknown senders get a 200 so Telegram does not retry, but nothing runs.
+                if (!isAllowedSender(update, env.ALLOWED_USER_IDS)) {
+                    return new Response("OK", { status: 200 });
+                }
+
+                const { success } = await env.USER_RATE_LIMIT.limit({
+                    key: String(senderId(update)),
+                });
+                if (!success) {
+                    return new Response("OK", { status: 200 });
+                }
 
                 if (!update?.message?.chat?.id) {
                     return new Response("REQUEST INVALID", { status: 400 });
@@ -85,10 +106,17 @@ export default {
                     nextSigningKey: env.QSTASH_NEXT_SIGNING_KEY,
                 });
 
-                const isValid = await receiver.verify({
-                    signature: signature || "",
-                    body: bodyText,
-                });
+                let isValid = false;
+                try {
+                    isValid = await receiver.verify({
+                        signature: signature || "",
+                        body: bodyText,
+                        url: `${url.origin}/process`,
+                    });
+                } catch {
+                    // `verify` throws SignatureError (or a JWT error) on bad signatures.
+                    isValid = false;
+                }
 
                 if (!isValid) {
                     return new Response("Unauthorized", { status: 401 });
@@ -96,6 +124,9 @@ export default {
 
                 console.log(new Date(), "Parsing body", bodyText);
                 const update = JSON.parse(bodyText) as Update;
+                if (!isAllowedSender(update, env.ALLOWED_USER_IDS)) {
+                    return new Response("Ignored", { status: 200 });
+                }
                 const chatId = update.message?.chat?.id.toString();
 
                 if (!chatId) return new Response("No chat ID", { status: 400 });
@@ -209,11 +240,9 @@ export default {
                             parse_mode: "Markdown",
                         });
                     } catch (err: any) {
-                        console.error("Workers AI error:", err);
+                        console.error("Receipt extraction error:", err);
                         await ctx.reply(
-                            `❌ Failed to process transaction: ${
-                                err.message || "Unknown error"
-                            }`,
+                            "❌ Sorry, I couldn't read that receipt. Please try again later.",
                         );
                     }
                 });

@@ -12,6 +12,19 @@
 		"head_sampling_rate": 1,
 	},
 	"upload_source_maps": true,
+	"vars": {
+		// Comma-separated Telegram user ids allowed to use the bot. Empty = nobody.
+		// Find your id by messaging @userinfobot. Not a secret.
+		"ALLOWED_USER_IDS": ""
+	},
+	// Per-user limit: 20 messages per 60 s (see src/index.ts).
+	"ratelimits": [
+		{
+			"name": "USER_RATE_LIMIT",
+			"namespace_id": "1001",
+			"simple": { "limit": 20, "period": 60 }
+		}
+	],
 	// "queues": {
 	// 	"producers": [
 	// 		{

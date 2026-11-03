@@ -51,8 +51,23 @@ storage or limits.
 - Durable Object tests use unique names per test (`getByName`) and
   `runInDurableObject` to read SQLite directly.
 
+## Security model (finneas-tg-bot)
+
+- `POST /` requires `X-Telegram-Bot-Api-Secret-Token` == `TELEGRAM_WEBHOOK_SECRET`
+  (constant-time compare in `src/lib/security.ts`), else 401. An unset secret rejects everything.
+- `ALLOWED_USER_IDS` (var, comma-separated) gates both `POST /` and `/process`. Unknown
+  senders get 200 and nothing happens (so Telegram does not retry). Empty list = nobody.
+- `USER_RATE_LIMIT` (Workers rate limiting binding, 20/min per user) drops excess updates with 200.
+  `callWorker()` in tests swaps it for an unlimited fake; pass the real binding to test it.
+- `/process` verifies the QStash JWT including `url` (`<origin>/process`); any
+  verification error is 401, never 500.
+- Never send `err.message` or other internals to the chat.
+
 ## Roadmap status
 
 Issue #9 tracks the review follow-ups (#10–#20). Progress:
 
 - [x] #12 offline test suite (unused `AI` binding removed; nested lockfiles removed)
+- [x] #10 webhook secret, allowlist, rate limit, QStash URL check. **Before deploying**:
+  `wrangler secret put TELEGRAM_WEBHOOK_SECRET`, set `ALLOWED_USER_IDS`, and re-register
+  the webhook with `secret_token` (see #16 scripts).
