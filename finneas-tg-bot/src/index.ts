@@ -7,6 +7,21 @@ import { extractTransactionInfo } from "./lib/extractTransactionInfo";
 import { AgentDO } from "./lib/AgentDO";
 import { transcribe } from "./lib/transcribe";
 import { SYSTEM } from "./SYSTEM_PROMPT";
+import { log, logError, since } from "./lib/log";
+
+/** Which handler an update will hit, for logs. */
+export function handlerKind(update: Update): string {
+    const m = update.message;
+    if (m) {
+        if (m.voice) return "voice";
+        if (m.photo) return "photo";
+        if (m.entities?.some((e) => e.type === "bot_command" && e.offset === 0)) return "command";
+        if (m.text !== undefined) return "text";
+        return "other";
+    }
+    if (update.callback_query) return "callback";
+    return "other";
+}
 
 export interface Env {
     OPENROUTER_API_KEY: string;
@@ -30,7 +45,6 @@ export default {
         ctx: ExecutionContext,
     ): Promise<Response> {
         const url = new URL(request.url);
-        console.log(new Date(), "--- FETCH HIT ---", url);
 
         // ==========================================
         // ROUTE 1: Receive Webhook from Telegram (/)
@@ -87,7 +101,7 @@ export default {
                 // Return 200 OK instantly to Telegram
                 return new Response("OK", { status: 200 });
             } catch (err) {
-                console.error("Error receiving from Telegram:", err);
+                logError("webhook.failed", err);
                 return new Response("Error", { status: 500 });
             }
         }
@@ -122,7 +136,6 @@ export default {
                     return new Response("Unauthorized", { status: 401 });
                 }
 
-                console.log(new Date(), "Parsing body", bodyText);
                 const update = JSON.parse(bodyText) as Update;
                 if (!isAllowedSender(update, env.ALLOWED_USER_IDS)) {
                     return new Response("Ignored", { status: 200 });
@@ -131,11 +144,13 @@ export default {
 
                 if (!chatId) return new Response("No chat ID", { status: 400 });
 
-                console.log(new Date(), "chat id:", chatId);
-
-                // Keep the await here! If this takes 30s and times out,
-                // it throws an error, returns 500, and QStash retries it automatically.
-                console.log(new Date(), `Creating bot`);
+                const start = Date.now();
+                const logFields = {
+                    update_id: update.update_id,
+                    chat_id: Number(chatId),
+                    handler: handlerKind(update),
+                };
+                log("update.received", logFields);
 
                 const bot = new Bot(env.FINNEAS_BOT_TOKEN, {
                     botInfo: JSON.parse(env.FINNEAS_BOT_INFO),
@@ -181,9 +196,6 @@ export default {
 
                     const imageBuffer = await response.arrayBuffer();
 
-                    console.log(
-                        `Downloaded image of size: ${imageBuffer.byteLength} bytes`,
-                    );
 
                     await ctx.reply(
                         `Received your image!\nDimensions: ${highestResPhoto.width}x${highestResPhoto.height}\nSize: ${imageBuffer.byteLength} bytes.`,
@@ -198,6 +210,7 @@ export default {
                         const extractedData = await extractTransactionInfo({
                             image: dataUri,
                             env,
+                            logFields: { chat_id: ctx.chatId },
                         });
 
                         if (!extractedData) {
@@ -240,7 +253,7 @@ export default {
                             parse_mode: "Markdown",
                         });
                     } catch (err: any) {
-                        console.error("Receipt extraction error:", err);
+                        logError("receipt.extract_failed", err, { chat_id: ctx.chatId });
                         await ctx.reply(
                             "❌ Sorry, I couldn't read that receipt. Please try again later.",
                         );
@@ -248,7 +261,6 @@ export default {
                 });
 
                 bot.on("message:voice", async (ctx) => {
-                    console.log(new Date(), "Voice handler starts");
                     const file = await ctx.getFile();
 
                     if (!file.file_path) {
@@ -259,7 +271,6 @@ export default {
                     const fileUrl =
                         `https://api.telegram.org/file/bot${env.FINNEAS_BOT_TOKEN}/${file.file_path}`;
 
-                    console.log(new Date(), "Fetching voice starts");
                     const response = await fetch(fileUrl);
                     if (!response.ok) {
                         await ctx.reply("Failed to download voice note.");
@@ -267,13 +278,13 @@ export default {
                     }
 
                     const audioBuffer = await response.arrayBuffer();
-                    console.log(new Date(), "Fetching voice ends");
 
                     let stt;
                     try {
                         stt = await transcribe({
                             audio: audioBuffer,
                             env,
+                            logFields: { chat_id: ctx.chatId },
                         });
 
                         if (!stt) {
@@ -283,7 +294,7 @@ export default {
                             return;
                         }
                     } catch (err) {
-                        console.error(err);
+                        logError("voice.transcription_failed", err, { chat_id: ctx.chatId });
                         await ctx.reply(
                             "Something went wrong with the transcription.",
                         );
@@ -312,7 +323,6 @@ export default {
                     }
 
                     await ctx.reply(answer);
-                    console.log(new Date(), "Voice handler ends");
                 });
 
                 bot.on("message", async (ctx: Context) => {
@@ -321,7 +331,6 @@ export default {
                         await ctx.reply("It looks your message is empty");
                         return;
                     }
-                    console.log(message);
 
                     const chatId = ctx.chatId;
                     if (!chatId) {
@@ -351,20 +360,12 @@ export default {
                     }
                 });
 
-                bot.catch((err) => {
-                    console.error(
-                        "Unhandled error in grammY middleware:",
-                        err.error,
-                    );
-                });
-
-                console.log(new Date(), "Bot created");
-
                 await bot.handleUpdate(update);
+                log("update.done", { ...logFields, duration_ms: since(start) });
 
                 return new Response("Processed successfully", { status: 200 });
             } catch (err) {
-                console.error("Error processing queue:", err);
+                logError("process.failed", err);
                 return new Response("Internal Server Error", { status: 500 });
             }
         }

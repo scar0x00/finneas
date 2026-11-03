@@ -1,8 +1,10 @@
 import type { Env } from "../index";
+import { log, since, type LogFields } from "./log";
 
 type extractTransactionInfoParams = {
     image: ArrayBuffer | string;
     env: Env;
+    logFields?: LogFields;
 };
 
 const question =
@@ -29,6 +31,7 @@ JSON format:
 export async function extractTransactionInfo({
     image,
     env,
+    logFields = {},
 }: extractTransactionInfoParams) {
     if (!env.OPENROUTER_API_KEY) {
         throw new Error("Missing OPENROUTER_API_KEY in environment variables.");
@@ -76,6 +79,7 @@ export async function extractTransactionInfo({
     };
 
     // 2. Invoke the OpenRouter API
+    const start = Date.now();
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -89,19 +93,26 @@ export async function extractTransactionInfo({
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenRouter API Error:", errorText);
+        log("model.call", { ...logFields, kind: "vision", model: requestBody.model, status: response.status, duration_ms: since(start) });
         throw new Error(`OpenRouter API request failed with status ${response.status}`);
     }
 
     const data = await response.json() as any;
-    console.log("Text extraction: ", JSON.stringify(data, null, 2));
+    log("model.call", {
+        ...logFields,
+        kind: "vision",
+        model: data?.model ?? requestBody.model,
+        status: response.status,
+        duration_ms: since(start),
+        image_bytes: dataUrl.length,
+        prompt_tokens: data?.usage?.prompt_tokens,
+        completion_tokens: data?.usage?.completion_tokens,
+    });
 
     // 3. Extract the text response
     const aiText = data.choices?.[0]?.message?.content || "";
 
     if (!aiText) {
-        console.error("Empty AI Response:", JSON.stringify(data, null, 2));
         throw new Error("The AI returned an empty response.");
     }
 
@@ -124,7 +135,6 @@ export async function extractTransactionInfo({
         
         return JSON.parse(cleanedText);
     } catch (error) {
-        console.error("Failed to parse DeepSeek response:", aiText);
         throw new Error("The AI did not return a valid JSON object.");
     }
 }

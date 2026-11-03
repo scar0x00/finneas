@@ -33,7 +33,6 @@ export class AgentDO extends DurableObject<Env> {
                 initMessage,
             ];
         }
-        console.log(new Date(), "init done", this.history);
     }
 
     constructor(ctx: DurableObjectState, env: Env) {
@@ -62,12 +61,12 @@ export class AgentDO extends DurableObject<Env> {
                 content: userMssg,
             },
         ];
-        console.log(new Date(), "Chat so far", messages);
 
         const response = await runOpenrouterModel({
             OPENROUTER_API_KEY: this.env.OPENROUTER_API_KEY,
             messages,
-            model: this.model
+            model: this.model,
+            logFields: { chat_id: Number(this.chatId), history_len: messages.length },
         });
 
         this.appendMessages([

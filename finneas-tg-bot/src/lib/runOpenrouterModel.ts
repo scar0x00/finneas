@@ -1,11 +1,14 @@
 import type { ChatHistory } from "../types/Chat";
-import type { AgentDOHistory } from "./AgentDO"
+import type { AgentDOHistory } from "./AgentDO";
+import { log, since, type LogFields } from "./log";
 
 type runOpenrouterModelParams = {
   model?: string;
   OPENROUTER_API_KEY: string;
   messages: ChatHistory | AgentDOHistory;
   reasoning?: boolean;
+  /** Extra fields (e.g. `chat_id`) for the `model.call` log line. */
+  logFields?: LogFields;
 };
 
 type Choice = {
@@ -32,7 +35,9 @@ export async function runOpenrouterModel({
   OPENROUTER_API_KEY,
   messages,
   reasoning = true,
+  logFields = {},
 }: runOpenrouterModelParams) {
+  const start = Date.now();
   let response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -48,10 +53,18 @@ export async function runOpenrouterModel({
     }),
   });
   const result: OpenRouterResult = await response.json();
+  log("model.call", {
+    ...logFields,
+    kind: "chat",
+    model: result?.model ?? model,
+    status: response.status,
+    duration_ms: since(start),
+    prompt_tokens: result?.usage?.prompt_tokens,
+    completion_tokens: result?.usage?.completion_tokens,
+  });
   if (!result.choices || !Array.isArray(result?.choices)) {
-    console.log(new Date(), "OpenRouter result", result);
     throw new Error(
-      "AI.run returned succefully, but the response object is malformed",
+      `OpenRouter returned a malformed response (status ${response.status})`,
     );
   }
   const message = result?.choices[0]?.message;

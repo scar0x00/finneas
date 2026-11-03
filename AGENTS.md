@@ -63,6 +63,17 @@ storage or limits.
   verification error is 401, never 500.
 - Never send `err.message` or other internals to the chat.
 
+## Logging
+
+- Use `log` / `logWarn` / `logError` from `finneas-tg-bot/src/lib/log.ts` (one JSON line
+  per call, with an `event` name). It is the only module allowed to use `console`.
+- Never log message text, transcriptions, chat history, model output or receipt fields.
+  Log ids, sizes, timings and token counts. `test/logging.spec.ts` enforces this by
+  spying on `console` during full text/voice/photo flows.
+- Standard fields: `update_id`, `chat_id`, `handler` (`text|voice|photo|command|callback`),
+  `duration_ms`; model calls log `model.call` with `kind`, `model`, `prompt_tokens`,
+  `completion_tokens`. A normal message produces `update.received`, `model.call`, `update.done`.
+
 ## Roadmap status
 
 Issue #9 tracks the review follow-ups (#10–#20). Progress:
@@ -71,3 +82,4 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
 - [x] #10 webhook secret, allowlist, rate limit, QStash URL check. **Before deploying**:
   `wrangler secret put TELEGRAM_WEBHOOK_SECRET`, set `ALLOWED_USER_IDS`, and re-register
   the webhook with `secret_token` (see #16 scripts).
+- [x] #11 structured JSON logs, no personal data
