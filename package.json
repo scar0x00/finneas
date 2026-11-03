@@ -5,9 +5,13 @@
   "main": "index.js",
   "private": true,
   "scripts": {
+    "prepare": "lefthook install",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "keywords": [],
   "author": "",
@@ -22,7 +26,9 @@
   "packageManager": "pnpm@12.5.1",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^26.6.2",
-    "wrangler": "^4.135.0"
+    "@types/node": "catalog:",
+    "wrangler": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "lefthook": "^2.0.4"
   }
 }

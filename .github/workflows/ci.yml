@@ -25,6 +25,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
       - run: pnpm -r typecheck
       # Fully offline: no secrets are available or needed here.
       - run: pnpm -r test

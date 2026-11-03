@@ -1,0 +1,25 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended", ":semanticCommits"],
+	"schedule": ["before 6am on monday"],
+	"timezone": "America/Caracas",
+	"rangeStrategy": "bump",
+	"packageRules": [
+		{
+			"description": "Cloudflare tooling moves together",
+			"groupName": "cloudflare workers tooling",
+			"matchPackageNames": ["wrangler", "workerd", "@cloudflare/vitest-plugin", "@cloudflare/workers-types"]
+		},
+		{
+			"description": "Automerge patch updates of devDependencies once CI passes",
+			"matchDepTypes": ["devDependencies"],
+			"matchUpdateTypes": ["patch"],
+			"automerge": true
+		},
+		{
+			"description": "GitHub Actions",
+			"matchManagers": ["github-actions"],
+			"groupName": "github actions"
+		}
+	]
+}
