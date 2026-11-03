@@ -24,4 +24,6 @@ export const TEST_BINDINGS = {
 	OPENROUTER_API_KEY: "test-openrouter-key",
 	TELEGRAM_WEBHOOK_SECRET: "test_webhook_secret-0123456789",
 	ALLOWED_USER_IDS: "1001, 1002",
+	CHAT_MODEL: "test/chat-model",
+	MAX_CONTEXT_MESSAGES: "30",
 } as const;

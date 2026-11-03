@@ -5,7 +5,6 @@ import { arrayBufferToBase64 } from "./lib/arrayBufferToBase64";
 import { extractTransactionInfo } from "./lib/extractTransactionInfo";
 import { AgentDO } from "./lib/AgentDO";
 import { transcribe } from "./lib/transcribe";
-import { SYSTEM } from "./SYSTEM_PROMPT";
 import { log, logError, since } from "./lib/log";
 import { hasValidTelegramSecret, isAllowedSender, senderId } from "./lib/security";
 import { isRetryable, isRetryableStatus, RetryableError } from "./lib/errors";
@@ -27,6 +26,10 @@ export interface Env {
 	/** Comma-separated Telegram user ids allowed to use the bot. Empty = nobody. */
 	ALLOWED_USER_IDS: string;
 	USER_RATE_LIMIT: RateLimit;
+	/** OpenRouter model for the chat agent. */
+	CHAT_MODEL?: string;
+	/** How many stored messages (plus the system prompt) are sent to the model. */
+	MAX_CONTEXT_MESSAGES?: string;
 }
 
 const FRIENDLY_ERROR = "Sorry, something went wrong on my side. Please try again in a moment.";
@@ -224,13 +227,22 @@ async function downloadTelegramFile(ctx: Context, env: Env): Promise<ArrayBuffer
 	return response.arrayBuffer();
 }
 
-/** Sends `text` to the chat's agent and replies with its answer. Shared by text and voice. */
-async function answerWithAgent(ctx: Context, env: Env, text: string): Promise<void> {
+/**
+ * Sends `text` to the chat's agent and replies with its answer. Shared by text and voice.
+ * A redelivered update does not call the model again; its stored answer is re-sent only
+ * if it never reached the user.
+ */
+async function answerWithAgent(ctx: Context, env: Env, text: string, source: "text" | "voice"): Promise<void> {
 	const chatId = ctx.chatId!;
+	const updateId = ctx.update.update_id;
 	const agent = env.AGENT_DO.getByName(chatId.toString());
-	await agent.init({ SYSTEM });
-	const answer = await agent.run(text);
-	await sendLongMessage(ctx.api, chatId, answer);
+	const result = await agent.chat({ updateId, text, source });
+	if (result.duplicate) {
+		log("update.duplicate", { update_id: updateId, chat_id: chatId, replied: result.replied });
+		if (result.replied) return;
+	}
+	await sendLongMessage(ctx.api, chatId, result.answer);
+	await agent.markReplied(updateId);
 }
 
 function registerHandlers(bot: Bot, env: Env): void {
@@ -286,11 +298,11 @@ function registerHandlers(bot: Bot, env: Env): void {
 			return;
 		}
 
-		await answerWithAgent(ctx, env, stt);
+		await answerWithAgent(ctx, env, stt, "voice");
 	});
 
 	bot.on("message:text", async (ctx) => {
-		await answerWithAgent(ctx, env, ctx.message.text);
+		await answerWithAgent(ctx, env, ctx.message.text, "text");
 	});
 
 	bot.on("message", async (ctx) => {

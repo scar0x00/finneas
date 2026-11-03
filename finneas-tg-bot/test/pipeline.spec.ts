@@ -181,3 +181,26 @@ describe("/new", () => {
 		expect(last).not.toContain("remember me");
 	});
 });
+
+describe("duplicate deliveries", () => {
+	it("delivering the same update to /process twice makes one model call and one reply", async () => {
+		mockChat(mock, "the answer");
+		const update = textUpdate("hello", { chatId: 888001 });
+		expect((await callWorker(await processRequest(update))).status).toBe(200);
+		expect((await callWorker(await processRequest(update))).status).toBe(200);
+		expect(chatCalls(mock)).toHaveLength(1);
+		expect(sentTexts(mock)).toEqual(["the answer"]);
+	});
+
+	it("re-sends the stored answer when the first reply never went out", async () => {
+		mockChat(mock, "the answer");
+		mock.once("api.telegram.org", /sendMessage$/, () => jsonResponse({ ok: false, error_code: 502, description: "Bad Gateway" }, 502));
+		const update = textUpdate("hello", { chatId: 888002 });
+		expect((await callWorker(await processRequest(update))).status).toBeGreaterThanOrEqual(500);
+		expect((await callWorker(await processRequest(update))).status).toBe(200);
+		expect(chatCalls(mock)).toHaveLength(1);
+		expect(sentTexts(mock)).toEqual(["the answer", "the answer"].slice(0, 2));
+		const ok = telegramCalls(mock, "sendMessage").length;
+		expect(ok).toBe(2); // one failed attempt + one successful re-send
+	});
+});

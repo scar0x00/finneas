@@ -90,6 +90,22 @@ Telegram → `POST /` → QStash publish (`deduplicationId = update_id`) → `PO
 - Replies go through `sendLongMessage()` (splits at 4096 chars). Model-provided values in
   formatted messages use HTML parse mode with `escapeHtml()`; never legacy Markdown.
 
+## AgentDO (finneas-tg-bot/src/lib/AgentDO.ts)
+
+- One DO per chat (`env.AGENT_DO.getByName(chatId)`), history in SQLite `chat_messages`.
+- Single RPC: `chat({ updateId, text, source })` → `{ answer, duplicate }`. Then
+  `markReplied(updateId)` after the reply is sent. A repeated `updateId` never calls the
+  model; the stored answer is re-sent only if `replied` is false (first reply failed).
+- Calls are serialised with a promise-chain queue (not `blockConcurrencyWhile`, which
+  would also block `/new`). User + assistant rows are written in one transaction after
+  the model succeeds, with `update_id`, `model`, token counts.
+- The system prompt (`src/SYSTEM_PROMPT.ts`) is prepended at call time and never stored.
+  Context = system + last `MAX_CONTEXT_MESSAGES - 1` stored rows + the new message
+  (var, default 30). Model from `CHAT_MODEL` var.
+- Schema changes: append to `MIGRATIONS` (never edit a released one). They run in the
+  constructor under `blockConcurrencyWhile`, tracked in `schema_migrations`. Current: v2.
+  SQLite cannot alter a CHECK constraint; rebuilding the table is needed for new roles.
+
 ## Logging
 
 - Use `log` / `logWarn` / `logError` from `finneas-tg-bot/src/lib/log.ts` (one JSON line
@@ -110,5 +126,7 @@ Issue #9 tracks the review follow-ups (#10–#20). Progress:
   `wrangler secret put TELEGRAM_WEBHOOK_SECRET`, set `ALLOWED_USER_IDS`, and re-register
   the webhook with `secret_token` (see #16 scripts).
 - [x] #11 structured JSON logs, no personal data
-- [x] #14 idempotent pipeline (DO-level `update_id` dedupe lands with #15)
+- [x] #14 idempotent pipeline
+- [x] #15 AgentDO: one `chat()` RPC, live system prompt, bounded context, per-chat queue,
+  migrations. Conversation summaries (optional in the issue) are not implemented.
 - [x] #13 CI workflow. Branch protection on `main` (require `check`) must be set by Oscar in GitHub settings.

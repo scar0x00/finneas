@@ -17,7 +17,10 @@
 		// Find your id by messaging @userinfobot. Not a secret.
 		"ALLOWED_USER_IDS": "",
 		// QStash API region (the account's token is region-specific).
-		"QSTASH_URL": "https://qstash-us-east-1.upstash.io"
+		"QSTASH_URL": "https://qstash-us-east-1.upstash.io",
+		"CHAT_MODEL": "google/gemini-3.1-flash-lite",
+		// System prompt + this many most recent stored messages are sent to the model.
+		"MAX_CONTEXT_MESSAGES": "30"
 	},
 	// Per-user limit: 20 messages per 60 s (see src/index.ts).
 	"ratelimits": [

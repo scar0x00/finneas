@@ -1,12 +1,11 @@
 import type { ChatHistory } from "../types/Chat";
-import type { AgentDOHistory } from "./AgentDO";
 import { log, since, type LogFields } from "./log";
 import { openrouterPost } from "./openrouterFetch";
 
 type runOpenrouterModelParams = {
 	model?: string;
 	OPENROUTER_API_KEY: string;
-	messages: ChatHistory | AgentDOHistory;
+	messages: ChatHistory;
 	reasoning?: boolean;
 	/** Extra fields (e.g. `chat_id`) for the `model.call` log line. */
 	logFields?: LogFields;
